@@ -30,6 +30,16 @@ class ScreenCaptureGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # Khởi tạo các thuộc tính config mặc định TRƯỚC khi load
+        self.api_key = ""
+        self.azure_api_key = ""
+        self.azure_region = "southeastasia"
+        self.cloudconvert_api_key = ""
+        self.gemini_model = "gemini-2.0-flash"
+        self.current_prompt = ""
+        self.window_width = 1280
+        self.window_height = 800
+        
         # Load config first để lấy window size và API keys
         self.load_config()
         
@@ -45,13 +55,19 @@ class ScreenCaptureGUI(ctk.CTk):
         # Biến trạng thái
         self.is_running = False
         self.is_processing = False
+        self.is_recording = False
         self.listener = None
-        self.api_key = ""
-        self.current_prompt = ""
         self.history = []
+        self.selected_convert_file = None
         
-        # Load cấu hình
-        self.load_config()
+        # Khởi tạo temp folder
+        self.temp_folder = os.path.join(os.path.dirname(__file__), "temp")
+        os.makedirs(self.temp_folder, exist_ok=True)
+        
+        # Khởi tạo handlers
+        self.audio_handler = None
+        self.cloudconvert_handler = None
+        self.universal_converter = None
         
         # Tạo giao diện
         self.create_widgets()
@@ -205,7 +221,9 @@ class ScreenCaptureGUI(ctk.CTk):
             height=28
         )
         self.api_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
-        self.api_entry.insert(0, self.api_key)
+        if self.api_key:
+            self.api_entry.delete(0, "end")
+            self.api_entry.insert(0, self.api_key)
         
         ctk.CTkButton(
             gemini_entry_frame,
@@ -246,7 +264,9 @@ class ScreenCaptureGUI(ctk.CTk):
             height=28
         )
         self.azure_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
-        self.azure_entry.insert(0, self.azure_api_key)
+        if self.azure_api_key:
+            self.azure_entry.delete(0, "end")
+            self.azure_entry.insert(0, self.azure_api_key)
         
         ctk.CTkButton(
             azure_entry_frame,
@@ -289,7 +309,9 @@ class ScreenCaptureGUI(ctk.CTk):
             height=28
         )
         self.cloudconvert_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
-        self.cloudconvert_entry.insert(0, self.cloudconvert_api_key)
+        if self.cloudconvert_api_key:
+            self.cloudconvert_entry.delete(0, "end")
+            self.cloudconvert_entry.insert(0, self.cloudconvert_api_key)
         
         ctk.CTkButton(
             cloudconvert_entry_frame,
@@ -994,8 +1016,14 @@ class ScreenCaptureGUI(ctk.CTk):
                     self.current_prompt = config.get('prompt', '')
                     self.window_width = config.get('window_width', 1280)
                     self.window_height = config.get('window_height', 800)
+                print(f"✅ Loaded config from {config_file}")
+            except json.JSONDecodeError as e:
+                print(f"❌ Lỗi parse JSON: {e}")
+                print(f"   File config.json có thể bị hỏng, sẽ sử dụng cấu hình mặc định")
             except Exception as e:
-                print(f"Lỗi load config: {e}")
+                print(f"❌ Lỗi load config: {e}")
+        else:
+            print(f"⚠️ File {config_file} không tồn tại, sẽ tạo mới khi lưu config")
                 
     def save_config(self):
         """Lưu cấu hình vào file"""
@@ -1012,8 +1040,10 @@ class ScreenCaptureGUI(ctk.CTk):
         try:
             with open("config.json", 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
+            print(f"✅ Saved config to config.json")
         except Exception as e:
-            print(f"Lỗi save config: {e}")
+            print(f"❌ Lỗi save config: {e}")
+            messagebox.showerror("Error", f"Không thể lưu config:\n{str(e)}")
     
     # ===== AUDIO METHODS =====
     
@@ -1326,11 +1356,6 @@ class ScreenCaptureGUI(ctk.CTk):
         except Exception as e:
             self.log_convert_output(f"❌ Error: {str(e)}\n")
             self.log_convert_output(f"{'-'*50}\n\n")
-        threading.Thread(
-            target=self._convert_file_thread,
-            args=(file_path, output_format, output_file),
-            daemon=True
-        ).start()
     
     def convert_file(self):
         """Chuyển đổi format file âm thanh (OLD - giữ lại để tương thích)"""
