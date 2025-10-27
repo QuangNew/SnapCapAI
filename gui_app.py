@@ -1,27 +1,19 @@
 """
 Screen Capture & AI Analysis - GUI Application
-<<<<<<< HEAD
 Giao diện đồ họa cho chương trình phân tích ảnh với Gemini AI + Audio Transcription
-=======
-Giao diện đồ họa cho chương trình phân tích ảnh với Gemini AI
->>>>>>> 3c99636 (update all)
 """
 
 import os
 import io
 import json
-<<<<<<< HEAD
 import shutil
 import subprocess
-=======
->>>>>>> 3c99636 (update all)
 import threading
 import customtkinter as ctk
 from datetime import datetime
 from PIL import ImageGrab, Image, ImageTk
 from pynput import keyboard
 import google.generativeai as genai
-<<<<<<< HEAD
 from tkinter import scrolledtext, messagebox, filedialog, simpledialog
 import pystray
 from pystray import MenuItem as item
@@ -29,12 +21,6 @@ from audio_handler import AudioHandler
 from cloudconvert_handler import CloudConvertHandler
 from universal_converter import UniversalConverter
 from winotify import Notification, audio
-=======
-from plyer import notification
-from tkinter import scrolledtext, messagebox
-import pystray
-from pystray import MenuItem as item
->>>>>>> 3c99636 (update all)
 
 # Cấu hình theme
 ctk.set_appearance_mode("dark")
@@ -44,7 +30,6 @@ class ScreenCaptureGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-<<<<<<< HEAD
         # Load config first để lấy window size và API keys
         self.load_config()
         
@@ -55,38 +40,11 @@ class ScreenCaptureGUI(ctk.CTk):
         # Cấu hình cửa sổ chính
         self.title("🤖 Screen Capture & AI Analyzer")
         self.geometry(f"{window_width}x{window_height}")
-=======
-        # Cấu hình cửa sổ chính
-        self.title("🤖 Screen Capture & AI Analyzer")
-        self.geometry("900x700")
->>>>>>> 3c99636 (update all)
         self.minsize(800, 600)
         
         # Biến trạng thái
         self.is_running = False
         self.is_processing = False
-<<<<<<< HEAD
-        self.is_recording = False
-        self.listener = None
-        
-        # Tạo folder temp để lưu file âm thanh
-        self.temp_folder = os.path.join(os.path.dirname(__file__), "temp")
-        os.makedirs(self.temp_folder, exist_ok=True)
-        
-        # API keys - đã load từ config
-        self.api_key = getattr(self, 'api_key', "")
-        self.azure_api_key = getattr(self, 'azure_api_key', "")
-        self.azure_region = getattr(self, 'azure_region', "southeastasia")
-        self.cloudconvert_api_key = getattr(self, 'cloudconvert_api_key', "")
-        
-        self.gemini_model = getattr(self, 'gemini_model', "gemini-2.0-flash")
-        self.current_prompt = ""
-        self.history = []
-        self.audio_handler = None
-        self.cloudconvert_handler = None
-        self.model = None
-        self.selected_convert_file = None  # File được chọn để convert
-=======
         self.listener = None
         self.api_key = ""
         self.current_prompt = ""
@@ -94,7 +52,6 @@ class ScreenCaptureGUI(ctk.CTk):
         
         # Load cấu hình
         self.load_config()
->>>>>>> 3c99636 (update all)
         
         # Tạo giao diện
         self.create_widgets()
@@ -125,7 +82,6 @@ class ScreenCaptureGUI(ctk.CTk):
         )
         self.status_label.pack(side="right")
         
-<<<<<<< HEAD
         # ===== NOTIFICATION BAR =====
         self.notification_frame = ctk.CTkFrame(self, corner_radius=10, fg_color="#2B2B2B", height=0)
         self.notification_frame.pack(fill="x", padx=20, pady=(0, 10))
@@ -140,8 +96,6 @@ class ScreenCaptureGUI(ctk.CTk):
         )
         self.notification_label.pack(padx=15, pady=10, fill="x")
         
-=======
->>>>>>> 3c99636 (update all)
         # ===== MAIN CONTAINER =====
         main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         main_container.pack(fill="both", expand=True, padx=20, pady=10)
@@ -151,7 +105,6 @@ class ScreenCaptureGUI(ctk.CTk):
         left_panel.pack(side="left", fill="both", padx=(0, 10), expand=False)
         left_panel.pack_propagate(False)
         
-<<<<<<< HEAD
         # Right Panel - Tabbed Interface
         right_panel = ctk.CTkFrame(main_container)
         right_panel.pack(side="right", fill="both", expand=True)
@@ -175,29 +128,13 @@ class ScreenCaptureGUI(ctk.CTk):
         # ===== LEFT PANEL CONTENT =====
         self.create_config_section(left_panel)
         
-=======
-        # Right Panel - History & Output
-        right_panel = ctk.CTkFrame(main_container)
-        right_panel.pack(side="right", fill="both", expand=True)
-        
-        # ===== LEFT PANEL CONTENT =====
-        self.create_config_section(left_panel)
-        
-        # ===== RIGHT PANEL CONTENT =====
-        self.create_output_section(right_panel)
-        
->>>>>>> 3c99636 (update all)
         # ===== CONTROL BUTTONS =====
         control_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         control_frame.pack(fill="x", padx=20, pady=(10, 20))
         
         self.start_button = ctk.CTkButton(
             control_frame,
-<<<<<<< HEAD
             text="▶️ Start Listening",
-=======
-            text="▶️ Start",
->>>>>>> 3c99636 (update all)
             command=self.toggle_listening,
             font=ctk.CTkFont(size=16, weight="bold"),
             height=50,
@@ -218,7 +155,6 @@ class ScreenCaptureGUI(ctk.CTk):
         minimize_button.pack(side="right", fill="x", expand=True, padx=(5, 0))
         
     def create_config_section(self, parent):
-<<<<<<< HEAD
         """Tạo phần cấu hình API keys với nút thu gọn"""
         
         # ==== API CONFIGURATION HEADER với Toggle Button ====
@@ -384,64 +320,12 @@ class ScreenCaptureGUI(ctk.CTk):
         
         ctk.CTkLabel(
             self.prompt_frame,
-=======
-        """Tạo phần cấu hình"""
-        
-        # API Key Section
-        api_frame = ctk.CTkFrame(parent)
-        api_frame.pack(fill="x", padx=15, pady=(15, 10))
-        
-        ctk.CTkLabel(
-            api_frame,
-            text="🔑 Gemini API Key",
-            font=ctk.CTkFont(size=14, weight="bold")
-        ).pack(anchor="w", padx=10, pady=(10, 5))
-        
-        self.api_entry = ctk.CTkEntry(
-            api_frame,
-            placeholder_text="Enter your Gemini API key...",
-            show="*"
-        )
-        self.api_entry.pack(fill="x", padx=10, pady=(0, 5))
-        self.api_entry.insert(0, self.api_key)
-        
-        api_button_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
-        api_button_frame.pack(fill="x", padx=10, pady=(0, 10))
-        
-        ctk.CTkButton(
-            api_button_frame,
-            text="💾 Save",
-            command=self.save_api_key,
-            width=80,
-            height=30
-        ).pack(side="left", padx=(0, 5))
-        
-        ctk.CTkButton(
-            api_button_frame,
-            text="👁️ Show/Hide",
-            command=self.toggle_api_visibility,
-            width=100,
-            height=30,
-            fg_color="#5E5E5E"
-        ).pack(side="left")
-        
-        # Prompt Templates Section
-        prompt_frame = ctk.CTkFrame(parent)
-        prompt_frame.pack(fill="x", padx=15, pady=10)
-        
-        ctk.CTkLabel(
-            prompt_frame,
->>>>>>> 3c99636 (update all)
             text="📝 Prompt Template",
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
         
         self.prompt_selector = ctk.CTkComboBox(
-<<<<<<< HEAD
             self.prompt_frame,
-=======
-            prompt_frame,
->>>>>>> 3c99636 (update all)
             values=[
                 "Custom",
                 "Chỉ trả lời câu hỏi",
@@ -455,35 +339,19 @@ class ScreenCaptureGUI(ctk.CTk):
         self.prompt_selector.pack(fill="x", padx=10, pady=(0, 10))
         self.prompt_selector.set("Chỉ trả lời câu hỏi")
         
-<<<<<<< HEAD
         # Custom Prompt Editor (với scrollbar)
         ctk.CTkLabel(
             self.prompt_frame,
-=======
-        # Custom Prompt Editor
-        custom_prompt_frame = ctk.CTkFrame(parent)
-        custom_prompt_frame.pack(fill="both", expand=True, padx=15, pady=10)
-        
-        ctk.CTkLabel(
-            custom_prompt_frame,
->>>>>>> 3c99636 (update all)
             text="✏️ Custom Prompt",
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
         
-<<<<<<< HEAD
         # Textbox với scrollbar tự động
         self.prompt_text = ctk.CTkTextbox(
             self.prompt_frame,
             height=150,
             font=ctk.CTkFont(size=12),
             wrap="word"  # Word wrap để tránh scroll ngang
-=======
-        self.prompt_text = ctk.CTkTextbox(
-            custom_prompt_frame,
-            height=150,
-            font=ctk.CTkFont(size=12)
->>>>>>> 3c99636 (update all)
         )
         self.prompt_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
@@ -520,7 +388,6 @@ class ScreenCaptureGUI(ctk.CTk):
             wrap="word"
         )
         self.output_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
-<<<<<<< HEAD
     
     def create_audio_section(self, parent):
         """Tạo phần Audio Transcription (không có Convert button)"""
@@ -683,8 +550,6 @@ class ScreenCaptureGUI(ctk.CTk):
         
         # Welcome message
         self.convert_output_text.insert("1.0", "🎉 Universal Converter | 49+ formats | 4 categories\n📂 Output: temp/{category}/\n\n")
-=======
->>>>>>> 3c99636 (update all)
         
     def toggle_api_visibility(self):
         """Hiện/ẩn API key"""
@@ -692,7 +557,6 @@ class ScreenCaptureGUI(ctk.CTk):
             self.api_entry.configure(show="")
         else:
             self.api_entry.configure(show="*")
-<<<<<<< HEAD
     
     def toggle_azure_visibility(self):
         """Hiện/ẩn Azure API key"""
@@ -713,15 +577,12 @@ class ScreenCaptureGUI(ctk.CTk):
             self.api_container.pack(fill="x", padx=15, pady=(5, 10), before=self.prompt_frame)
             self.api_toggle_button.configure(text="▼")
             self.api_section_visible = True
-=======
->>>>>>> 3c99636 (update all)
             
     def save_api_key(self):
         """Lưu API key"""
         self.api_key = self.api_entry.get().strip()
         if self.api_key:
             self.save_config()
-<<<<<<< HEAD
             messagebox.showinfo("Success", "Gemini API Key đã được lưu!")
         else:
             messagebox.showwarning("Warning", "Vui lòng nhập API Key!")
@@ -793,20 +654,11 @@ class ScreenCaptureGUI(ctk.CTk):
         self.gemini_model = choice
         self.save_config()
         self.log_output(f"✅ Đã thay đổi model thành: {choice}\n")
-=======
-            messagebox.showinfo("Success", "API Key đã được lưu!")
-        else:
-            messagebox.showwarning("Warning", "Vui lòng nhập API Key!")
->>>>>>> 3c99636 (update all)
             
     def on_prompt_changed(self, choice):
         """Xử lý khi thay đổi prompt template"""
         templates = {
-<<<<<<< HEAD
             "Chỉ trả lời câu hỏi": "Chỉ quan tâm đến các câu hỏi trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác.",
-=======
-            "Chỉ trả lời câu hỏi": "Chỉ quan tâm đến câu hỏi rõ ràng nhất trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác.",
->>>>>>> 3c99636 (update all)
             "Code Analysis": """Hãy phân tích đoạn code trong ảnh:
 1. Ngôn ngữ lập trình
 2. Chức năng chính của code
@@ -827,11 +679,7 @@ class ScreenCaptureGUI(ctk.CTk):
             
     def load_default_prompt(self):
         """Load prompt mặc định"""
-<<<<<<< HEAD
         default_prompt = "Chỉ quan tâm đến các câu hỏi trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác."
-=======
-        default_prompt = "Chỉ quan tâm đến câu hỏi rõ ràng nhất trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác."
->>>>>>> 3c99636 (update all)
         self.prompt_text.insert("1.0", default_prompt)
         
     def toggle_listening(self):
@@ -852,13 +700,8 @@ class ScreenCaptureGUI(ctk.CTk):
         # Cấu hình Gemini
         try:
             genai.configure(api_key=self.api_key)
-<<<<<<< HEAD
             self.model = genai.GenerativeModel(self.gemini_model)
             self.log_output(f"✅ Đã kết nối với {self.gemini_model}\n")
-=======
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
-            self.log_output("✅ Đã kết nối với Gemini API\n")
->>>>>>> 3c99636 (update all)
         except Exception as e:
             messagebox.showerror("Error", f"Lỗi kết nối Gemini API:\n{str(e)}")
             return
@@ -895,11 +738,7 @@ class ScreenCaptureGUI(ctk.CTk):
             
         # Cập nhật UI
         self.start_button.configure(
-<<<<<<< HEAD
             text="▶️ Start Listening",
-=======
-            text="▶️ Start",
->>>>>>> 3c99636 (update all)
             fg_color="#2CC985",
             hover_color="#25A866"
         )
@@ -927,19 +766,11 @@ class ScreenCaptureGUI(ctk.CTk):
         
         try:
             # Chụp màn hình
-<<<<<<< HEAD
             self.log_output("📸 Đang chụp màn hình...\n")
             screenshot = ImageGrab.grab()
             
             # Gửi đến Gemini
             self.log_output(f"🤖 Đang gửi đến {self.gemini_model}...\n")
-=======
-            # self.log_output("📸 Đang chụp màn hình...\n")
-            screenshot = ImageGrab.grab()
-            
-            # Gửi đến Gemini
-            # self.log_output("🤖 Đang gửi đến Gemini API...\n")
->>>>>>> 3c99636 (update all)
             response = self.model.generate_content([
                 self.current_prompt,
                 screenshot
@@ -954,30 +785,14 @@ class ScreenCaptureGUI(ctk.CTk):
             self.log_output(f"{result}\n")
             self.log_output("-" * 60 + "\n\n")
             
-<<<<<<< HEAD
             # Lưu vào lịch sử
             self.history.append({
                 "timestamp": datetime.now().isoformat(),
                 "model": self.gemini_model,
-=======
-            # Hiển thị thông báo
-            notification_msg = result[:250] + "..." if len(result) > 250 else result
-            notification.notify(
-                title="✅ Kết quả phân tích",
-                message=notification_msg,
-                app_name="Screen Capture Analyzer",
-                timeout=15
-            )
-            
-            # Lưu vào lịch sử
-            self.history.append({
-                "timestamp": datetime.now().isoformat(),
->>>>>>> 3c99636 (update all)
                 "prompt": self.current_prompt,
                 "result": result
             })
             
-<<<<<<< HEAD
             # Hiển thị Windows Toast Notification (gọi trực tiếp từ thread)
             preview = result[:200] + "..." if len(result) > 200 else result
             self.show_system_notification(
@@ -995,17 +810,10 @@ class ScreenCaptureGUI(ctk.CTk):
                 message=str(e),
                 timeout=8
             )
-=======
-        except Exception as e:
-            error_msg = f"❌ Lỗi: {str(e)}\n"
-            self.log_output(error_msg)
-            messagebox.showerror("Error", error_msg)
->>>>>>> 3c99636 (update all)
         finally:
             self.is_processing = False
             
     def log_output(self, message):
-<<<<<<< HEAD
         """Ghi log vào output text (auto-detect tab)"""
         # Ghi vào tab audio nếu hiện tại đang ở tab audio
         try:
@@ -1022,16 +830,10 @@ class ScreenCaptureGUI(ctk.CTk):
         if hasattr(self, 'output_text'):
             self.output_text.insert("end", message)
             self.output_text.see("end")
-=======
-        """Ghi log vào output text"""
-        self.output_text.insert("end", message)
-        self.output_text.see("end")
->>>>>>> 3c99636 (update all)
         
     def clear_output(self):
         """Xóa output"""
         self.output_text.delete("1.0", "end")
-<<<<<<< HEAD
     
     def show_notification(self, message, notification_type="info", duration=5000):
         """
@@ -1097,8 +899,6 @@ class ScreenCaptureGUI(ctk.CTk):
             traceback.print_exc()
             # Fallback: Hiển thị trên window nếu system notification thất bại
             self.show_notification(f"{title}: {message}", "info", duration=5000)
-=======
->>>>>>> 3c99636 (update all)
         
     def minimize_to_tray(self):
         """Thu nhỏ xuống system tray"""
@@ -1132,7 +932,6 @@ class ScreenCaptureGUI(ctk.CTk):
     def on_closing(self):
         """Xử lý khi đóng cửa sổ"""
         if messagebox.askokcancel("Quit", "Bạn có muốn thoát chương trình?"):
-<<<<<<< HEAD
             try:
                 # Lưu kích thước cửa sổ hiện tại
                 current_width = self.winfo_width()
@@ -1179,9 +978,6 @@ class ScreenCaptureGUI(ctk.CTk):
                 print(f"✅ Đã dọn dẹp folder temp")
         except Exception as e:
             print(f"❌ Lỗi cleanup temp folder: {e}")
-=======
-            self.quit_app()
->>>>>>> 3c99636 (update all)
             
     def load_config(self):
         """Load cấu hình từ file"""
@@ -1191,7 +987,6 @@ class ScreenCaptureGUI(ctk.CTk):
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     self.api_key = config.get('api_key', '')
-<<<<<<< HEAD
                     self.azure_api_key = config.get('azure_api_key', '')
                     self.azure_region = config.get('azure_region', 'southeastasia')
                     self.cloudconvert_api_key = config.get('cloudconvert_api_key', '')
@@ -1199,9 +994,6 @@ class ScreenCaptureGUI(ctk.CTk):
                     self.current_prompt = config.get('prompt', '')
                     self.window_width = config.get('window_width', 1280)
                     self.window_height = config.get('window_height', 800)
-=======
-                    self.current_prompt = config.get('prompt', '')
->>>>>>> 3c99636 (update all)
             except Exception as e:
                 print(f"Lỗi load config: {e}")
                 
@@ -1209,7 +1001,6 @@ class ScreenCaptureGUI(ctk.CTk):
         """Lưu cấu hình vào file"""
         config = {
             'api_key': self.api_key,
-<<<<<<< HEAD
             'azure_api_key': self.azure_api_key,
             'azure_region': self.azure_region,
             'cloudconvert_api_key': self.cloudconvert_api_key,
@@ -1217,16 +1008,12 @@ class ScreenCaptureGUI(ctk.CTk):
             'prompt': self.prompt_text.get("1.0", "end-1c").strip() if hasattr(self, 'prompt_text') else '',
             'window_width': getattr(self, 'window_width', 1280),
             'window_height': getattr(self, 'window_height', 800)
-=======
-            'prompt': self.prompt_text.get("1.0", "end-1c").strip()
->>>>>>> 3c99636 (update all)
         }
         try:
             with open("config.json", 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Lỗi save config: {e}")
-<<<<<<< HEAD
     
     # ===== AUDIO METHODS =====
     
@@ -1666,8 +1453,6 @@ class ScreenCaptureGUI(ctk.CTk):
         stt_folder = os.path.join(os.path.dirname(__file__), "temp", "speechtotext_output")
         os.makedirs(stt_folder, exist_ok=True)
         self.open_folder(stt_folder)
-=======
->>>>>>> 3c99636 (update all)
 
 
 def main():
