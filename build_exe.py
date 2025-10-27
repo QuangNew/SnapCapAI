@@ -6,6 +6,16 @@ Build với CapSnapAI.spec file
 import os
 import sys
 import subprocess
+import shutil
+
+def clean_build():
+    """Dọn dẹp các folder build cũ"""
+    folders_to_clean = ['build', 'dist']
+    for folder in folders_to_clean:
+        if os.path.exists(folder):
+            print(f"🗑️  Cleaning {folder}/...")
+            shutil.rmtree(folder)
+    print()
 
 def build_exe():
     """Build executable với PyInstaller sử dụng spec file"""
@@ -18,36 +28,56 @@ def build_exe():
         return False
     
     print("=" * 60)
-    print("CapSnap AI - Executable Builder")
+    print("🤖 CapSnap AI - Executable Builder")
     print("=" * 60)
     print()
     
     # Check PyInstaller
     try:
         import PyInstaller
-        print("✅ PyInstaller found")
+        print(f"✅ PyInstaller found: v{PyInstaller.__version__}")
     except ImportError:
         print("❌ PyInstaller not found. Installing...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"])
+        print("✅ PyInstaller installed")
     
     print()
+    
+    # Clean old builds
+    clean_build()
+    
     print(f"📋 Using spec file: {spec_file}")
     print("🔨 Building executable...")
-    print("This may take several minutes...")
+    print("⏳ This may take several minutes...")
     print()
+    print("-" * 60)
     
     # Run PyInstaller via Python module
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "PyInstaller", spec_file],
+            [sys.executable, "-m", "PyInstaller", spec_file, "--clean"],
             check=True,
             capture_output=False
         )
         
+        print("-" * 60)
         print()
         print("=" * 60)
         print("🎉 Build successful!")
-        print("📁 Location: dist\\CapSnapAI.exe")
+        print("=" * 60)
+        print()
+        
+        # Check exe file
+        exe_path = os.path.join("dist", "CapSnapAI.exe")
+        if os.path.exists(exe_path):
+            size_mb = os.path.getsize(exe_path) / (1024 * 1024)
+            print(f"� Executable: {exe_path}")
+            print(f"💾 Size: {size_mb:.2f} MB")
+            print()
+            print("✅ You can now run: dist\\CapSnapAI.exe")
+        else:
+            print("⚠️  Warning: Exe file not found in expected location")
+        
         print("=" * 60)
         return True
         

@@ -1,7 +1,6 @@
 Pillow>=10.0.0
 pynput>=1.7.6
 google-generativeai>=0.3.0
-<<<<<<< HEAD
 customtkinter>=5.2.0
 pystray>=0.19.0
 azure-cognitiveservices-speech>=1.31.0
@@ -10,8 +9,5 @@ soundfile>=0.12.1
 numpy>=1.21.0
 winotify>=1.1.0
 pyinstaller>=6.0.0
-=======
-plyer>=2.1.0
-customtkinter>=5.2.0
-pystray>=0.19.0
->>>>>>> 3c99636 (update all)
+requests>=2.31.0
+cloudconvert>=2.0.0
