@@ -36,17 +36,25 @@
 
 ---
 
-## 📦 Cài đặt
+## 📦 Cài đặt & Build
 
-### 1️⃣ Clone repository
+### 🚀 **Quick Start (Windows)**
+
+**Build EXE tự động:**
 ```bash
-git clone https://github.com/QuangNew/SnapCapAI.git
-cd SnapCapAI
+setup-and-build.bat
 ```
 
-### 2️⃣ Cài đặt dependencies
+Script sẽ:
+- ✅ Check Python (3.12+)
+- ✅ Cài tất cả dependencies
+- ✅ Build thành file `dist/CapSnapAI.exe`
+- ⏱️ Thời gian: ~10-15 phút
+
+**Hoặc manual:**
 ```bash
 pip install -r requirements.txt
+python gui_app.py
 ```
 
 ### 3️⃣ Cấu hình API Keys
@@ -62,27 +70,26 @@ Tạo file `config.json` hoặc nhập trực tiếp trong app:
 }
 ```
 
-#### 🔑 Lấy API Keys:
-- **Gemini API**: [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **Azure Speech**: [Azure Portal](https://portal.azure.com) → Cognitive Services → Speech
-- **CloudConvert**: [CloudConvert Dashboard](https://cloudconvert.com/dashboard/api/v2/keys) *(Optional)*
+#### 🔑 API Keys:
+- **Gemini** *(Required)*: [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Azure Speech** *(Optional)*: [Azure Portal](https://portal.azure.com) → Cognitive Services → Speech
+- **CloudConvert** *(Optional)*: [CloudConvert Dashboard](https://cloudconvert.com/dashboard/api/v2/keys)
 
 ---
 
 ## 🚀 Sử dụng
 
-### Chạy từ source code:
+### Chạy từ source:
 ```bash
 python gui_app.py
 ```
 
-### Build thành .exe:
+### Build thành EXE:
 ```bash
-python build_exe.py
+setup-and-build.bat
 ```
-File exe sẽ ở: `dist/CapSnapAI.exe`
 
-📖 **Chi tiết**: Xem [BUILD_GUIDE.md](BUILD_GUIDE.md) để biết thêm về build process.
+File exe sẽ ở: `dist/CapSnapAI.exe`
 
 ---
 
@@ -96,17 +103,21 @@ File exe sẽ ở: `dist/CapSnapAI.exe`
 5. Kết quả hiển thị trong tab **Image Analysis**
 
 ### 🎤 Chuyển đổi Audio:
-1. Nhập **Azure Speech API Key** và chọn **Region**
+1. Nhập **Azure Speech API Key** và chọn **Region** *(Optional)*
 2. **Start Recording**: Ghi âm từ mic
 3. **Stop Recording**: Dừng và tự động chuyển đổi
 4. **Upload File**: Chọn file audio có sẵn
 5. **Realtime**: Lắng nghe realtime (30s)
+
+> **Note**: Tính năng này cần Azure Speech API Key (optional)
 
 ### 🔄 Convert File:
 1. Click **Browse** → Chọn file
 2. Chọn **Category** và **Format**
 3. Click **Convert**
 4. File output: `temp/{category}/`
+
+> **Note**: Tính năng này cần CloudConvert API Key (optional)
 
 ---
 

@@ -82,12 +82,24 @@ class ScreenCaptureGUI(ctk.CTk):
         header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
         
+        # Title and credit container
+        title_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_container.pack(side="left")
+        
         title_label = ctk.CTkLabel(
-            header_frame,
+            title_container,
             text="🤖 Screen Capture & AI Analyzer",
             font=ctk.CTkFont(size=24, weight="bold")
         )
-        title_label.pack(side="left")
+        title_label.pack(anchor="w")
+        
+        credit_label = ctk.CTkLabel(
+            title_container,
+            text="By QuangNew",
+            font=ctk.CTkFont(size=10),
+            text_color="#888888"
+        )
+        credit_label.pack(anchor="w", pady=(2, 0))
         
         # Status indicator
         self.status_label = ctk.CTkLabel(
@@ -250,7 +262,7 @@ class ScreenCaptureGUI(ctk.CTk):
         # --- Azure Speech API ---
         ctk.CTkLabel(
             all_apis_frame,
-            text="🎤 Azure Speech",
+            text="🎤 Azure Speech (Optional)",
             font=ctk.CTkFont(size=12, weight="bold")
         ).pack(anchor="w", padx=10, pady=(5, 3))
         
@@ -647,10 +659,6 @@ class ScreenCaptureGUI(ctk.CTk):
             messagebox.showwarning("Warning", "Vui lòng nhập Gemini API Key!")
             return
         
-        if not azure_key:
-            messagebox.showwarning("Warning", "Vui lòng nhập Azure API Key!")
-            return
-        
         # Save to instance variables
         self.api_key = gemini_key
         self.azure_api_key = azure_key
@@ -663,8 +671,9 @@ class ScreenCaptureGUI(ctk.CTk):
         # Show success message
         msg = "✅ Đã lưu thành công:\n"
         msg += f"• Gemini API Key\n"
-        msg += f"• Azure Speech API Key\n"
-        msg += f"• Azure Region: {azure_region}\n"
+        if azure_key:
+            msg += f"• Azure Speech API Key\n"
+            msg += f"• Azure Region: {azure_region}\n"
         if cloudconvert_key:
             msg += f"• CloudConvert API Key\n"
         
