@@ -1,5 +1,5 @@
 """
-Screen Capture & AI Analysis - GUI Application
+SnapCapAI - AI-Powered Screen Capture & Analysis
 Giao diện đồ họa cho chương trình phân tích ảnh với Gemini AI + Audio Transcription
 """
 
@@ -48,7 +48,7 @@ class ScreenCaptureGUI(ctk.CTk):
         window_height = getattr(self, 'window_height', 800)
         
         # Cấu hình cửa sổ chính
-        self.title("🤖 Screen Capture & AI Analyzer")
+        self.title("🤖 SnapCapAI - AI Analyzer")
         self.geometry(f"{window_width}x{window_height}")
         self.minsize(800, 600)
         
@@ -88,7 +88,7 @@ class ScreenCaptureGUI(ctk.CTk):
         
         title_label = ctk.CTkLabel(
             title_container,
-            text="🤖 Screen Capture & AI Analyzer",
+            text="🤖 SnapCapAI - AI Analyzer",
             font=ctk.CTkFont(size=24, weight="bold")
         )
         title_label.pack(anchor="w")
@@ -912,7 +912,7 @@ class ScreenCaptureGUI(ctk.CTk):
         try:
             # Tạo notification
             toast = Notification(
-                app_id="CapSnap AI",
+                app_id="SnapCapAI",
                 title=title,
                 msg=message,
                 duration="long" if timeout > 5 else "short"
@@ -943,7 +943,7 @@ class ScreenCaptureGUI(ctk.CTk):
             item('Exit', self.quit_app)
         )
         
-        icon = pystray.Icon("screen_capture", image, "Screen Capture Analyzer", menu)
+        icon = pystray.Icon("snapcapai", image, "SnapCapAI", menu)
         
         threading.Thread(target=icon.run, daemon=True).start()
         

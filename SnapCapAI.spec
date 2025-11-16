@@ -81,7 +81,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='CapSnapAI',
+    name='SnapCapAI',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -94,5 +94,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='cap_ans.ico' if os.path.exists('cap_ans.ico') else None,
+    icon='SnapCapAI.ico' if os.path.exists('SnapCapAI.ico') else None,
 )

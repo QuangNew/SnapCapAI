@@ -1,4 +1,4 @@
-# 🤖 SnapCapAI - Screen Capture & AI Analyzer
+# 🤖 SnapCapAI - AI-Powered Screen Analysis
 
 > **Công cụ chụp màn hình thông minh với AI phân tích hình ảnh, chuyển đổi giọng nói và convert file đa năng.**
 
@@ -48,7 +48,7 @@ setup-and-build.bat
 Script sẽ:
 - ✅ Check Python (3.12+)
 - ✅ Cài tất cả dependencies
-- ✅ Build thành file `dist/CapSnapAI.exe`
+- ✅ Build thành file `dist/SnapCapAI.exe`
 - ⏱️ Thời gian: ~10-15 phút
 
 **Hoặc manual:**
@@ -89,7 +89,7 @@ python gui_app.py
 setup-and-build.bat
 ```
 
-File exe sẽ ở: `dist/CapSnapAI.exe`
+File exe sẽ ở: `dist/SnapCapAI.exe`
 
 ---
 
@@ -130,7 +130,7 @@ SnapCapAI/
 ├── cloudconvert_handler.py    # CloudConvert API wrapper
 ├── universal_converter.py     # Universal file converter
 ├── build_exe.py              # Executable builder script
-├── CapSnapAI.spec            # PyInstaller spec file
+├── SnapCapAI.spec            # PyInstaller spec file
 ├── hook-azure.*.py           # PyInstaller hooks
 ├── requirements.txt          # Python dependencies
 ├── config.json              # Configuration file (auto-created)

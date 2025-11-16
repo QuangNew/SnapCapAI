@@ -75,7 +75,7 @@ if exist dist rmdir /s /q dist >nul 2>&1
 echo.
 
 REM Run PyInstaller
-%PYTHON_CMD% -m PyInstaller CapSnapAI.spec --clean --noconfirm
+%PYTHON_CMD% -m PyInstaller SnapCapAI.spec --clean --noconfirm
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed!
@@ -91,9 +91,9 @@ echo ============================================================
 echo.
 
 REM Check exe file
-if exist "dist\CapSnapAI.exe" (
-    echo Executable created: dist\CapSnapAI.exe
-    for %%A in ("dist\CapSnapAI.exe") do (
+if exist "dist\SnapCapAI.exe" (
+    echo Executable created: dist\SnapCapAI.exe
+    for %%A in ("dist\SnapCapAI.exe") do (
         set "SIZE=%%~zA"
     )
     if defined SIZE (
@@ -107,8 +107,8 @@ if exist "dist\CapSnapAI.exe" (
 
 echo.
 echo You can now:
-echo   1. Test: cd dist ^&^& CapSnapAI.exe
-echo   2. Distribute: Copy dist\CapSnapAI.exe to other machines
+echo   1. Test: cd dist ^&^& SnapCapAI.exe
+echo   2. Distribute: Copy dist\SnapCapAI.exe to other machines
 echo.
 echo ============================================================
 echo.
