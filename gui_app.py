@@ -1220,7 +1220,8 @@ class ScreenCaptureGUI(ctk.CTk):
     
     def update_format_options(self, selected_category=None):
         """Cập nhật format options dựa vào category được chọn"""
-        if not hasattr(self, 'universal_converter'):
+        # Khởi tạo UniversalConverter nếu chưa có
+        if not hasattr(self, 'universal_converter') or self.universal_converter is None:
             self.universal_converter = UniversalConverter("")
         
         category = selected_category or self.category_selector.get()
@@ -1231,11 +1232,16 @@ class ScreenCaptureGUI(ctk.CTk):
             "Video": "video"
         }
         
-        formats = self.universal_converter.get_supported_formats(category_map.get(category, "audio"))
-        format_list = formats.get(category_map.get(category, "audio"), ["mp3"])
+        category_key = category_map.get(category, "audio")
+        formats = self.universal_converter.get_supported_formats(category_key)
+        format_list = formats.get(category_key, ["mp3"])
         
+        # Cập nhật danh sách format và set format đầu tiên
         self.output_format_selector.configure(values=format_list)
-        self.output_format_selector.set(format_list[0])
+        if format_list:
+            self.output_format_selector.set(format_list[0])
+        
+        self.log_convert_output(f"📂 Category: {category} → {len(format_list)} formats available\n")
     
     def select_file_to_convert(self):
         """Chọn file để convert - hỗ trợ nhiều loại file"""
