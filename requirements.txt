@@ -1,13 +1,24 @@
+# SnapCapAI Dependencies
+# Run: pip install -r requirements.txt
+
+# Core - Required
 Pillow>=10.0.0
-pynput>=1.7.6
 google-generativeai>=0.3.0
 customtkinter>=5.2.0
 pystray>=0.19.0
+
+# Fallback keyboard listener (optional - stealth mode uses ctypes)
+pynput>=1.7.6
+
+# Audio Transcription (optional)
 azure-cognitiveservices-speech>=1.31.0
 sounddevice>=0.4.5
 soundfile>=0.12.1
 numpy>=1.21.0
-winotify>=1.1.0
-pyinstaller>=6.0.0
-requests>=2.31.0
+
+# File Conversion (optional)
 cloudconvert>=2.0.0
+requests>=2.31.0
+
+# Build (optional)
+pyinstaller>=6.0.0

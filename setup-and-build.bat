@@ -1,13 +1,12 @@
 @echo off
 REM ============================================================
 REM SnapCapAI - Auto Setup and Build to EXE
-REM By QuangNew
+REM Updated: December 2025
 REM ============================================================
 
 echo.
 echo ============================================================
 echo   SnapCapAI - Setup and Build to EXE
-echo   By QuangNew
 echo ============================================================
 echo.
 
@@ -18,8 +17,7 @@ if errorlevel 1 (
     python --version >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] Python not found!
-        echo Please install Python 3.12+ from https://python.org
-        echo Make sure to check "Add Python to PATH" during installation
+        echo Please install Python 3.10+ from https://python.org
         pause
         exit /b 1
     )
@@ -31,92 +29,59 @@ if errorlevel 1 (
 echo [OK] Python found!
 echo.
 
-REM Check pip
-echo [2/5] Checking and upgrading pip...
+REM Upgrade pip
+echo [2/5] Upgrading pip...
 %PYTHON_CMD% -m pip install --upgrade pip
-echo [OK] pip upgraded!
 echo.
 
 REM Install requirements
-echo [3/5] Installing dependencies from requirements.txt...
-echo This may take 5-10 minutes...
-echo.
+echo [3/5] Installing dependencies...
 %PYTHON_CMD% -m pip install -r requirements.txt
 if errorlevel 1 (
-    echo.
     echo [ERROR] Failed to install dependencies!
-    echo Please check your internet connection and try again.
     pause
     exit /b 1
 )
-echo.
-echo [OK] All dependencies installed!
+echo [OK] Dependencies installed!
 echo.
 
-REM Verify installation
+REM Verify core modules
 echo [4/5] Verifying installation...
-%PYTHON_CMD% -c "import customtkinter; import PIL; import pynput; import google.generativeai; print('[OK] Core modules verified')"
+%PYTHON_CMD% -c "import customtkinter; import PIL; import google.generativeai; print('[OK] Core modules verified')"
 if errorlevel 1 (
-    echo [ERROR] Some modules failed to import!
+    echo [ERROR] Module verification failed!
     pause
     exit /b 1
 )
 echo.
 
-REM Build executable with PyInstaller
-echo [5/5] Building executable with PyInstaller...
-echo This will take 5-10 minutes...
+REM Build executable
+echo [5/5] Building executable...
 echo.
 
 REM Clean old builds
-echo Cleaning old builds...
 if exist build rmdir /s /q build >nul 2>&1
 if exist dist rmdir /s /q dist >nul 2>&1
-echo.
 
 REM Run PyInstaller
 %PYTHON_CMD% -m PyInstaller SnapCapAI.spec --clean --noconfirm
 if errorlevel 1 (
-    echo.
     echo [ERROR] Build failed!
-    echo Check the error messages above.
     pause
     exit /b 1
 )
 
 echo.
 echo ============================================================
-echo   BUILD COMPLETED SUCCESSFULLY!
+echo   BUILD COMPLETED!
 echo ============================================================
 echo.
-
-REM Check exe file
-if exist "dist\SnapCapAI.exe" (
-    echo Executable created: dist\SnapCapAI.exe
-    for %%A in ("dist\SnapCapAI.exe") do (
-        set "SIZE=%%~zA"
-    )
-    if defined SIZE (
-        set /a SIZE_MB=SIZE / 1048576
-        if !SIZE_MB! equ 0 set /a SIZE_MB=1
-        echo Size: !SIZE_MB! MB
-    )
-) else (
-    echo [WARNING] Exe file not found in expected location
-)
-
+echo   Output: dist\SnapCapAI.exe
 echo.
-echo You can now:
-echo   1. Test: cd dist ^&^& SnapCapAI.exe
-echo   2. Distribute: Copy dist\SnapCapAI.exe to other machines
-echo.
-echo ============================================================
+echo   NOTE: Run as Administrator for full Stealth Mode
 echo.
 
-REM Ask to open dist folder
-set /p OPEN_FOLDER="Open dist folder? (Y/N): "
-if /i "%OPEN_FOLDER%"=="Y" (
-    start explorer dist
-)
+set /p OPEN="Open dist folder? (Y/N): "
+if /i "%OPEN%"=="Y" start explorer dist
 
 pause

@@ -1,21 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
+# SnapCapAI PyInstaller Spec - Updated December 2025
 
 import sys
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 # Collect Azure Speech SDK files
-azure_datas = collect_data_files('azure.cognitiveservices.speech')
-azure_binaries = collect_dynamic_libs('azure.cognitiveservices.speech')
-azure_hiddenimports = collect_submodules('azure.cognitiveservices.speech')
+try:
+    azure_datas = collect_data_files('azure.cognitiveservices.speech')
+    azure_binaries = collect_dynamic_libs('azure.cognitiveservices.speech')
+    azure_hiddenimports = collect_submodules('azure.cognitiveservices.speech')
+except:
+    azure_datas = []
+    azure_binaries = []
+    azure_hiddenimports = []
 
 # Collect CustomTkinter files
 ctk_datas = collect_data_files('customtkinter')
 
 # Combine all data files
-datas = [
-    ('config.json', '.'),
-]
+datas = []
+if os.path.exists('config.json'):
+    datas.append(('config.json', '.'))
 datas += azure_datas
 datas += ctk_datas
 
@@ -23,34 +29,46 @@ datas += ctk_datas
 binaries = []
 binaries += azure_binaries
 
-# Hidden imports
+# Hidden imports - Updated for stealth mode
 hiddenimports = [
+    # Core
     'PIL._tkinter_finder',
-    'pystray',
-    'pynput',
-    'pynput.keyboard',
-    'pynput.mouse',
     'google.generativeai',
     'customtkinter',
     'tkinter',
+    'pystray',
+    
+    # Stealth mode modules (new)
+    'keyboard_hook_manager',
+    'hud_notification', 
+    'resource_manager',
+    
+    # Fallback keyboard (pynput)
+    'pynput',
+    'pynput.keyboard',
+    'pynput.mouse',
+    
+    # Azure Speech (optional)
     'azure',
     'azure.cognitiveservices',
     'azure.cognitiveservices.speech',
     'azure.cognitiveservices.speech.audio',
-    'winotify',
-    'win32api',
-    'win32con',
-    'win32gui',
-    'winsound',
+    
+    # File conversion
+    'universal_converter',
+    'cloudconvert_handler',
+    'audio_handler',
+    
+    # System
+    'ctypes',
+    'ctypes.wintypes',
+    'queue',
     'subprocess',
     'threading',
     'requests',
     'sounddevice',
     'soundfile',
     'numpy',
-    'universal_converter',
-    'cloudconvert_handler',
-    'audio_handler',
 ]
 hiddenimports += azure_hiddenimports
 

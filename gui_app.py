@@ -9,10 +9,13 @@ import json
 import shutil
 import subprocess
 import threading
+import sys
+import ctypes
+import queue
+import tkinter as tk
 import customtkinter as ctk
 from datetime import datetime
 from PIL import ImageGrab, Image, ImageTk
-from pynput import keyboard
 import google.generativeai as genai
 from tkinter import scrolledtext, messagebox, filedialog, simpledialog
 import pystray
@@ -20,13 +23,86 @@ from pystray import MenuItem as item
 from audio_handler import AudioHandler
 from cloudconvert_handler import CloudConvertHandler
 from universal_converter import UniversalConverter
-from winotify import Notification, audio
+from keyboard_hook_manager import KeyboardHookManager
+from hud_notification import HUDNotification
+from resource_manager import screenshot_context, SafeFileWriter
+
+# NOTE: pynput import is LAZY - only when needed as fallback
+# pynput breaks ctypes.WINFUNCTYPE when imported, causing keyboard hook to fail
+PYNPUT_AVAILABLE = False
+pynput_keyboard = None  # Will be imported lazily
+
+
+def _import_pynput():
+    """Lazy import pynput to avoid breaking ctypes keyboard hook."""
+    global PYNPUT_AVAILABLE, pynput_keyboard
+    if pynput_keyboard is None:
+        try:
+            from pynput import keyboard as pk
+            pynput_keyboard = pk
+            PYNPUT_AVAILABLE = True
+        except ImportError:
+            PYNPUT_AVAILABLE = False
+    return PYNPUT_AVAILABLE
+
+
+def is_admin():
+    """Check if the application is running with administrator privileges."""
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+
+def run_as_admin():
+    """Restart the application with administrator privileges."""
+    try:
+        if sys.argv[0].endswith('.py'):
+            # Running as Python script
+            ctypes.windll.shell32.ShellExecuteW(
+                None,
+                "runas",
+                sys.executable,
+                f'"{os.path.abspath(sys.argv[0])}"',
+                None,
+                1  # SW_SHOWNORMAL
+            )
+        else:
+            # Running as executable
+            ctypes.windll.shell32.ShellExecuteW(
+                None,
+                "runas",
+                sys.executable,
+                " ".join(sys.argv),
+                None,
+                1
+            )
+        return True
+    except Exception as e:
+        print(f"Failed to elevate privileges: {e}")
+        return False
+
 
 # Cấu hình theme
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 class ScreenCaptureGUI(ctk.CTk):
+    # HUD Color Scheme - Modern neon aesthetic
+    COLORS = {
+        'bg_dark': '#0A0A0A',
+        'bg_panel': '#1A1A1A',
+        'bg_input': '#2A2A2A',
+        'accent_green': '#00FF88',
+        'accent_cyan': '#00B8FF',
+        'accent_red': '#FF0055',
+        'accent_yellow': '#FFD700',
+        'accent_purple': '#9B59B6',
+        'text_primary': '#FFFFFF',
+        'text_dim': '#888888',
+        'border': '#333333',
+    }
+    
     def __init__(self):
         super().__init__()
         
@@ -39,6 +115,7 @@ class ScreenCaptureGUI(ctk.CTk):
         self.current_prompt = ""
         self.window_width = 1280
         self.window_height = 800
+        self.notification_theme = "white"  # "white" or "dark"
         
         # Load config first để lấy window size và API keys
         self.load_config()
@@ -47,16 +124,19 @@ class ScreenCaptureGUI(ctk.CTk):
         window_width = getattr(self, 'window_width', 1280)
         window_height = getattr(self, 'window_height', 800)
         
-        # Cấu hình cửa sổ chính
+        # Cấu hình cửa sổ chính với HUD theme
         self.title("🤖 SnapCapAI - AI Analyzer")
         self.geometry(f"{window_width}x{window_height}")
         self.minsize(800, 600)
+        self.configure(fg_color=self.COLORS['bg_dark'])
         
         # Biến trạng thái
         self.is_running = False
         self.is_processing = False
         self.is_recording = False
-        self.listener = None
+        self.keyboard_hook = None
+        self.pynput_listener = None
+        self.stealth_mode = False  # True if using keyboard hook, False if using pynput
         self.history = []
         self.selected_convert_file = None
         
@@ -69,8 +149,14 @@ class ScreenCaptureGUI(ctk.CTk):
         self.cloudconvert_handler = None
         self.universal_converter = None
         
+        # Thread-safe notification queue
+        self._notification_queue = queue.Queue()
+        
         # Tạo giao diện
         self.create_widgets()
+        
+        # Start notification polling loop
+        self._poll_notifications()
         
         # Protocol đóng cửa sổ
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -78,9 +164,13 @@ class ScreenCaptureGUI(ctk.CTk):
     def create_widgets(self):
         """Tạo các widget cho giao diện"""
         
-        # ===== HEADER =====
-        header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        # ===== HEADER ===== (HUD Style)
+        header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=self.COLORS['bg_dark'])
         header_frame.pack(fill="x", padx=20, pady=(20, 10))
+        
+        # Accent bar (neon green)
+        accent_bar = ctk.CTkFrame(header_frame, height=3, fg_color=self.COLORS['accent_green'], corner_radius=0)
+        accent_bar.pack(fill="x", pady=(0, 10))
         
         # Title and credit container
         title_container = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -89,29 +179,50 @@ class ScreenCaptureGUI(ctk.CTk):
         title_label = ctk.CTkLabel(
             title_container,
             text="🤖 SnapCapAI - AI Analyzer",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=ctk.CTkFont(size=24, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         )
         title_label.pack(anchor="w")
         
+        # Admin status indicator
+        admin_status = "👑 Admin Mode" if is_admin() else "⚠️ Standard Mode"
+        admin_color = self.COLORS['accent_green'] if is_admin() else self.COLORS['accent_yellow']
+        
         credit_label = ctk.CTkLabel(
             title_container,
-            text="By QuangNew",
+            text=f"By QuangNew | {admin_status}",
             font=ctk.CTkFont(size=10),
-            text_color="#888888"
+            text_color=admin_color
         )
         credit_label.pack(anchor="w", pady=(2, 0))
         
-        # Status indicator
+        # Info button for admin mode
+        if not is_admin():
+            info_button = ctk.CTkButton(
+                header_frame,
+                text="ℹ️",
+                command=self._show_admin_info,
+                width=30,
+                height=30,
+                fg_color=self.COLORS['accent_yellow'],
+                hover_color="#CCAA00",
+                text_color=self.COLORS['bg_dark'],
+                font=ctk.CTkFont(size=14),
+                corner_radius=15
+            )
+            info_button.pack(side="right", padx=(0, 10))
+        
+        # Status indicator (HUD style)
         self.status_label = ctk.CTkLabel(
             header_frame,
-            text="⭕ Stopped",
-            font=ctk.CTkFont(size=14),
-            text_color="gray"
+            text="⭕ OFFLINE",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLORS['text_dim']
         )
         self.status_label.pack(side="right")
         
-        # ===== NOTIFICATION BAR =====
-        self.notification_frame = ctk.CTkFrame(self, corner_radius=10, fg_color="#2B2B2B", height=0)
+        # ===== NOTIFICATION BAR ===== (HUD Style)
+        self.notification_frame = ctk.CTkFrame(self, corner_radius=10, fg_color=self.COLORS['bg_panel'], height=0, border_width=1, border_color=self.COLORS['border'])
         self.notification_frame.pack(fill="x", padx=20, pady=(0, 10))
         self.notification_frame.pack_forget()  # Ẩn ban đầu
         
@@ -124,17 +235,17 @@ class ScreenCaptureGUI(ctk.CTk):
         )
         self.notification_label.pack(padx=15, pady=10, fill="x")
         
-        # ===== MAIN CONTAINER =====
-        main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        # ===== MAIN CONTAINER ===== (HUD Style)
+        main_container = ctk.CTkFrame(self, corner_radius=0, fg_color=self.COLORS['bg_dark'])
         main_container.pack(fill="both", expand=True, padx=20, pady=10)
         
-        # Left Panel - Configuration
-        left_panel = ctk.CTkFrame(main_container, width=400)
+        # Left Panel - Configuration (HUD Panel)
+        left_panel = ctk.CTkFrame(main_container, width=400, fg_color=self.COLORS['bg_panel'], border_width=1, border_color=self.COLORS['border'])
         left_panel.pack(side="left", fill="both", padx=(0, 10), expand=False)
         left_panel.pack_propagate(False)
         
-        # Right Panel - Tabbed Interface
-        right_panel = ctk.CTkFrame(main_container)
+        # Right Panel - Tabbed Interface (HUD Panel)
+        right_panel = ctk.CTkFrame(main_container, fg_color=self.COLORS['bg_panel'], border_width=1, border_color=self.COLORS['border'])
         right_panel.pack(side="right", fill="both", expand=True)
         
         # Tạo Tabview
@@ -156,71 +267,82 @@ class ScreenCaptureGUI(ctk.CTk):
         # ===== LEFT PANEL CONTENT =====
         self.create_config_section(left_panel)
         
-        # ===== CONTROL BUTTONS =====
-        control_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        # ===== CONTROL BUTTONS ===== (HUD Style)
+        control_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=self.COLORS['bg_dark'])
         control_frame.pack(fill="x", padx=20, pady=(10, 20))
         
         self.start_button = ctk.CTkButton(
             control_frame,
-            text="▶️ Start Listening",
+            text="▶ ENGAGE STEALTH MODE",
             command=self.toggle_listening,
             font=ctk.CTkFont(size=16, weight="bold"),
             height=50,
-            fg_color="#2CC985",
-            hover_color="#25A866"
+            fg_color=self.COLORS['accent_green'],
+            hover_color="#00CC70",
+            text_color=self.COLORS['bg_dark'],
+            border_width=2,
+            border_color=self.COLORS['accent_green']
         )
         self.start_button.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
         minimize_button = ctk.CTkButton(
             control_frame,
-            text="🔽 Minimize to Tray",
+            text="🔽 MINIMIZE TO TRAY",
             command=self.minimize_to_tray,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=14, weight="bold"),
             height=50,
-            fg_color="#5E5E5E",
-            hover_color="#4A4A4A"
+            fg_color=self.COLORS['bg_panel'],
+            hover_color=self.COLORS['bg_input'],
+            text_color=self.COLORS['text_primary'],
+            border_width=1,
+            border_color=self.COLORS['border']
         )
         minimize_button.pack(side="right", fill="x", expand=True, padx=(5, 0))
         
     def create_config_section(self, parent):
         """Tạo phần cấu hình API keys với nút thu gọn"""
         
-        # ==== API CONFIGURATION HEADER với Toggle Button ====
+        # ==== API CONFIGURATION HEADER với Toggle Button ==== (HUD Style)
         config_header = ctk.CTkFrame(parent, fg_color="transparent")
         config_header.pack(fill="x", padx=15, pady=(15, 5))
         
         ctk.CTkLabel(
             config_header,
-            text="⚙️ API Configuration",
-            font=ctk.CTkFont(size=16, weight="bold")
+            text="⚙️ API CONFIGURATION",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         ).pack(side="left")
         
-        # Toggle Button
+        # Toggle Button (HUD Style)
         self.api_toggle_button = ctk.CTkButton(
             config_header,
             text="▼",
             command=self.toggle_api_section,
             width=30,
             height=30,
-            fg_color="#5E5E5E",
-            hover_color="#4A4A4A",
+            fg_color=self.COLORS['bg_input'],
+            hover_color=self.COLORS['border'],
+            text_color=self.COLORS['accent_cyan'],
+            border_width=1,
+            border_color=self.COLORS['border'],
             font=ctk.CTkFont(size=16)
         )
         self.api_toggle_button.pack(side="right")
         
-        # Container cho tất cả API configs (có thể ẩn/hiện)
+        # Container cho tất cả API configs (có thể ẩn/hiện) (HUD Style)
         self.api_container = ctk.CTkFrame(parent, fg_color="transparent")
         self.api_container.pack(fill="x", padx=15, pady=(5, 10))
         
-        # ===== ALL APIs trong 1 Frame duy nhất =====
-        all_apis_frame = ctk.CTkFrame(self.api_container)
+        # ===== ALL APIs trong 1 Frame duy nhất ===== (HUD Style)
+        all_apis_frame = ctk.CTkFrame(self.api_container, fg_color=self.COLORS['bg_input'], border_width=1, border_color=self.COLORS['border'])
         all_apis_frame.pack(fill="x", pady=(0, 5))
         
-        # --- Gemini API ---
+        # --- Gemini API --- (HUD Style)
         ctk.CTkLabel(
             all_apis_frame,
-            text="🔑 Gemini API",
-            font=ctk.CTkFont(size=12, weight="bold")
+            text="🔑 GEMINI API",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.COLORS['accent_green']
         ).pack(anchor="w", padx=10, pady=(10, 3))
         
         gemini_entry_frame = ctk.CTkFrame(all_apis_frame, fg_color="transparent")
@@ -228,9 +350,12 @@ class ScreenCaptureGUI(ctk.CTk):
         
         self.api_entry = ctk.CTkEntry(
             gemini_entry_frame,
-            placeholder_text="Gemini API key...",
+            placeholder_text="Enter Gemini API key...",
             show="*",
-            height=28
+            height=28,
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_green'],
+            text_color=self.COLORS['text_primary']
         )
         self.api_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
         if self.api_key:
@@ -243,7 +368,10 @@ class ScreenCaptureGUI(ctk.CTk):
             command=self.toggle_api_visibility,
             width=35,
             height=28,
-            fg_color="#5E5E5E"
+            fg_color=self.COLORS['bg_panel'],
+            hover_color=self.COLORS['border'],
+            border_width=1,
+            border_color=self.COLORS['accent_green']
         ).pack(side="left")
         
         self.model_selector = ctk.CTkComboBox(
@@ -251,19 +379,25 @@ class ScreenCaptureGUI(ctk.CTk):
             values=["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-pro"],
             command=self.on_model_changed,
             height=26,
-            font=ctk.CTkFont(size=11)
+            font=ctk.CTkFont(size=11),
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_green'],
+            button_color=self.COLORS['accent_green'],
+            button_hover_color="#00CC70",
+            text_color=self.COLORS['text_primary']
         )
         self.model_selector.pack(fill="x", padx=10, pady=(0, 8))
         self.model_selector.set(self.gemini_model)
         
-        # Separator
-        ctk.CTkFrame(all_apis_frame, height=1, fg_color="#3E3E3E").pack(fill="x", padx=10, pady=3)
+        # Separator (HUD Style)
+        ctk.CTkFrame(all_apis_frame, height=1, fg_color=self.COLORS['accent_green']).pack(fill="x", padx=10, pady=3)
         
-        # --- Azure Speech API ---
+        # --- Azure Speech API --- (HUD Style)
         ctk.CTkLabel(
             all_apis_frame,
-            text="🎤 Azure Speech (Optional)",
-            font=ctk.CTkFont(size=12, weight="bold")
+            text="🎤 AZURE SPEECH (Optional)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         ).pack(anchor="w", padx=10, pady=(5, 3))
         
         azure_entry_frame = ctk.CTkFrame(all_apis_frame, fg_color="transparent")
@@ -271,9 +405,12 @@ class ScreenCaptureGUI(ctk.CTk):
         
         self.azure_entry = ctk.CTkEntry(
             azure_entry_frame,
-            placeholder_text="Azure API key...",
+            placeholder_text="Azure API key (optional)...",
             show="*",
-            height=28
+            height=28,
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            text_color=self.COLORS['text_primary']
         )
         self.azure_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
         if self.azure_api_key:
@@ -286,7 +423,10 @@ class ScreenCaptureGUI(ctk.CTk):
             command=self.toggle_azure_visibility,
             width=35,
             height=28,
-            fg_color="#5E5E5E"
+            fg_color=self.COLORS['bg_panel'],
+            hover_color=self.COLORS['border'],
+            border_width=1,
+            border_color=self.COLORS['accent_cyan']
         ).pack(side="left")
         
         self.azure_region_selector = ctk.CTkComboBox(
@@ -296,19 +436,25 @@ class ScreenCaptureGUI(ctk.CTk):
                 "westus", "westus2", "westeurope", "northeurope"
             ],
             height=26,
-            font=ctk.CTkFont(size=11)
+            font=ctk.CTkFont(size=11),
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            button_color=self.COLORS['accent_cyan'],
+            button_hover_color="#0099CC",
+            text_color=self.COLORS['text_primary']
         )
         self.azure_region_selector.pack(fill="x", padx=10, pady=(0, 8))
         self.azure_region_selector.set(self.azure_region)
         
-        # Separator
-        ctk.CTkFrame(all_apis_frame, height=1, fg_color="#3E3E3E").pack(fill="x", padx=10, pady=3)
+        # Separator (HUD Style)
+        ctk.CTkFrame(all_apis_frame, height=1, fg_color=self.COLORS['accent_cyan']).pack(fill="x", padx=10, pady=3)
         
-        # --- CloudConvert API ---
+        # --- CloudConvert API --- (HUD Style)
         ctk.CTkLabel(
             all_apis_frame,
-            text="🔄 CloudConvert (Optional)",
-            font=ctk.CTkFont(size=12, weight="bold")
+            text="🔄 CLOUDCONVERT (Optional)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.COLORS['accent_purple']
         ).pack(anchor="w", padx=10, pady=(5, 3))
         
         cloudconvert_entry_frame = ctk.CTkFrame(all_apis_frame, fg_color="transparent")
@@ -316,9 +462,12 @@ class ScreenCaptureGUI(ctk.CTk):
         
         self.cloudconvert_entry = ctk.CTkEntry(
             cloudconvert_entry_frame,
-            placeholder_text="CloudConvert API token...",
+            placeholder_text="CloudConvert API token (optional)...",
             show="*",
-            height=28
+            height=28,
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_purple'],
+            text_color=self.COLORS['text_primary']
         )
         self.cloudconvert_entry.pack(side="left", fill="x", expand=True, padx=(0, 3))
         if self.cloudconvert_api_key:
@@ -331,31 +480,38 @@ class ScreenCaptureGUI(ctk.CTk):
             command=self.toggle_cloudconvert_visibility,
             width=35,
             height=28,
-            fg_color="#5E5E5E"
+            fg_color=self.COLORS['bg_panel'],
+            hover_color=self.COLORS['border'],
+            border_width=1,
+            border_color=self.COLORS['accent_purple']
         ).pack(side="left")
         
-        # ===== SAVE ALL Button =====
+        # ===== SAVE ALL Button ===== (HUD Style)
         ctk.CTkButton(
             self.api_container,
-            text="💾 Save All API Keys",
+            text="💾 SAVE ALL CREDENTIALS",
             command=self.save_all_api_keys,
             height=36,
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#2CC985",
-            hover_color="#25A866"
+            fg_color=self.COLORS['accent_green'],
+            hover_color="#00CC70",
+            text_color=self.COLORS['bg_dark'],
+            border_width=2,
+            border_color=self.COLORS['accent_green']
         ).pack(fill="x", padx=0, pady=(5, 0))
         
         # Track API section state
         self.api_section_visible = True
         
-        # Prompt Templates Section (lưu reference để pack api_container before nó)
-        self.prompt_frame = ctk.CTkFrame(parent)
+        # Prompt Templates Section (lưu reference để pack api_container before nó) (HUD Style)
+        self.prompt_frame = ctk.CTkFrame(parent, fg_color=self.COLORS['bg_input'], border_width=1, border_color=self.COLORS['border'])
         self.prompt_frame.pack(fill="x", padx=15, pady=10)
         
         ctk.CTkLabel(
             self.prompt_frame,
-            text="📝 Prompt Template",
-            font=ctk.CTkFont(size=14, weight="bold")
+            text="📝 PROMPT TEMPLATE",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         ).pack(anchor="w", padx=10, pady=(10, 5))
         
         self.prompt_selector = ctk.CTkComboBox(
@@ -368,7 +524,12 @@ class ScreenCaptureGUI(ctk.CTk):
                 "Math Solver",
                 "Text Extraction"
             ],
-            command=self.on_prompt_changed
+            command=self.on_prompt_changed,
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            button_color=self.COLORS['accent_cyan'],
+            button_hover_color="#0099CC",
+            text_color=self.COLORS['text_primary']
         )
         self.prompt_selector.pack(fill="x", padx=10, pady=(0, 10))
         self.prompt_selector.set("Chỉ trả lời câu hỏi")
@@ -376,120 +537,192 @@ class ScreenCaptureGUI(ctk.CTk):
         # Custom Prompt Editor (với scrollbar)
         ctk.CTkLabel(
             self.prompt_frame,
-            text="✏️ Custom Prompt",
-            font=ctk.CTkFont(size=14, weight="bold")
+            text="✏️ CUSTOM PROMPT",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         ).pack(anchor="w", padx=10, pady=(10, 5))
         
-        # Textbox với scrollbar tự động
+        # Textbox với scrollbar tự động (HUD Style)
         self.prompt_text = ctk.CTkTextbox(
             self.prompt_frame,
             height=150,
             font=ctk.CTkFont(size=12),
-            wrap="word"  # Word wrap để tránh scroll ngang
+            wrap="word",
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            text_color=self.COLORS['text_primary'],
+            border_width=1
         )
         self.prompt_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
         # Load prompt mặc định
         self.load_default_prompt()
         
+        # ===== NOTIFICATION THEME ===== (inside prompt_frame)
+        ctk.CTkFrame(self.prompt_frame, height=1, fg_color=self.COLORS['border']).pack(fill="x", padx=10, pady=(5, 10))
+        
+        notif_row = ctk.CTkFrame(self.prompt_frame, fg_color="transparent")
+        notif_row.pack(fill="x", padx=10, pady=(0, 10))
+        
+        ctk.CTkLabel(
+            notif_row,
+            text="🔔 NOTIFICATION:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.COLORS['accent_yellow']
+        ).pack(side="left", padx=(0, 10))
+        
+        self.notif_theme_selector = ctk.CTkComboBox(
+            notif_row,
+            values=["⬜ White", "⬛ Dark"],
+            command=self.on_notification_theme_changed,
+            width=120,
+            height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_yellow'],
+            button_color=self.COLORS['accent_yellow'],
+            button_hover_color="#E6C200",
+            text_color=self.COLORS['text_primary']
+        )
+        self.notif_theme_selector.pack(side="left")
+        # Set current value
+        if getattr(self, 'notification_theme', 'white') == 'dark':
+            self.notif_theme_selector.set("⬛ Dark")
+        else:
+            self.notif_theme_selector.set("⬜ White")
+        
     def create_output_section(self, parent):
         """Tạo phần hiển thị kết quả"""
         
-        # Output Header
+        # Output Header (HUD Style)
         output_header = ctk.CTkFrame(parent, height=40, fg_color="transparent")
         output_header.pack(fill="x", padx=15, pady=(15, 5))
         
         ctk.CTkLabel(
             output_header,
-            text="📊 Analysis Results",
-            font=ctk.CTkFont(size=16, weight="bold")
+            text="📊 ANALYSIS RESULTS",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=self.COLORS['accent_green']
         ).pack(side="left")
         
         ctk.CTkButton(
             output_header,
-            text="🗑️ Clear",
+            text="🗑️ CLEAR",
             command=self.clear_output,
             width=80,
             height=30,
-            fg_color="#E74C3C",
-            hover_color="#C0392B"
+            fg_color=self.COLORS['accent_red'],
+            hover_color="#CC0044",
+            text_color=self.COLORS['text_primary'],
+            border_width=1,
+            border_color=self.COLORS['accent_red'],
+            font=ctk.CTkFont(size=11, weight="bold")
         ).pack(side="right")
         
-        # Output Text Area
+        # Output Text Area (HUD Style)
         self.output_text = ctk.CTkTextbox(
             parent,
             font=ctk.CTkFont(size=12),
-            wrap="word"
+            wrap="word",
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_green'],
+            text_color=self.COLORS['text_primary'],
+            border_width=1
         )
         self.output_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
     
     def create_audio_section(self, parent):
         """Tạo phần Audio Transcription (không có Convert button)"""
         
-        # Audio Header
+        # Audio Header (HUD Style)
         audio_header = ctk.CTkFrame(parent, fg_color="transparent")
         audio_header.pack(fill="x", padx=15, pady=(15, 10))
         
         ctk.CTkLabel(
             audio_header,
-            text="🎤 Audio Transcription",
-            font=ctk.CTkFont(size=16, weight="bold")
+            text="🎤 AUDIO TRANSCRIPTION",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=self.COLORS['accent_cyan']
         ).pack(side="left")
         
-        # Audio Control Buttons (without Convert)
+        # Audio Control Buttons (without Convert) (HUD Style)
         button_frame = ctk.CTkFrame(parent, fg_color="transparent")
         button_frame.pack(fill="x", padx=15, pady=(10, 10))
         
         ctk.CTkButton(
             button_frame,
-            text="🎤 Start Recording",
+            text="🎤 RECORD",
             command=self.start_recording,
             height=40,
-            fg_color="#2CC985",
-            hover_color="#25A866"
+            fg_color=self.COLORS['accent_green'],
+            hover_color="#00CC70",
+            text_color=self.COLORS['bg_dark'],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1,
+            border_color=self.COLORS['accent_green']
         ).pack(side="left", padx=(0, 5), fill="x", expand=True)
         
         ctk.CTkButton(
             button_frame,
-            text="⏹️ Stop Recording",
+            text="⏹ STOP",
             command=self.stop_recording,
             height=40,
-            fg_color="#E74C3C",
-            hover_color="#C0392B"
+            fg_color=self.COLORS['accent_red'],
+            hover_color="#CC0044",
+            text_color=self.COLORS['text_primary'],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1,
+            border_color=self.COLORS['accent_red']
         ).pack(side="left", padx=(0, 5), fill="x", expand=True)
         
         ctk.CTkButton(
             button_frame,
-            text="📂 Upload File",
+            text="📂 UPLOAD",
             command=self.upload_audio_file,
             height=40,
-            fg_color="#3498DB",
-            hover_color="#2980B9"
+            fg_color=self.COLORS['accent_cyan'],
+            hover_color="#0099CC",
+            text_color=self.COLORS['bg_dark'],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1,
+            border_color=self.COLORS['accent_cyan']
         ).pack(side="left", padx=(0, 5), fill="x", expand=True)
         
         ctk.CTkButton(
             button_frame,
-            text="🎙️ Realtime",
+            text="🎙️ LIVE",
             command=self.transcribe_realtime,
             height=40,
-            fg_color="#9B59B6",
-            hover_color="#8E44AD"
+            fg_color=self.COLORS['accent_purple'],
+            hover_color="#7D3C98",
+            text_color=self.COLORS['text_primary'],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1,
+            border_color=self.COLORS['accent_purple']
         ).pack(side="left", padx=(0, 5), fill="x", expand=True)
         
         ctk.CTkButton(
             button_frame,
-            text="📂 STT Folder",
+            text="📁 FOLDER",
             command=self.open_stt_output_folder,
             height=40,
-            fg_color="#F39C12",
-            hover_color="#E67E22"
+            fg_color=self.COLORS['accent_yellow'],
+            hover_color="#CCAA00",
+            text_color=self.COLORS['bg_dark'],
+            font=ctk.CTkFont(size=12, weight="bold"),
+            border_width=1,
+            border_color=self.COLORS['accent_yellow']
         ).pack(side="left", fill="x", expand=True)
         
-        # Audio Output Text Area
+        # Audio Output Text Area (HUD Style)
         self.audio_output_text = ctk.CTkTextbox(
             parent,
             font=ctk.CTkFont(size=12),
-            wrap="word"
+            wrap="word",
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            text_color=self.COLORS['text_primary'],
+            border_width=1
         )
         self.audio_output_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
@@ -499,8 +732,8 @@ class ScreenCaptureGUI(ctk.CTk):
     def create_convert_section(self, parent):
         """Tạo phần File Conversion với UI compact"""
         
-        # Main Control Frame - compact horizontal layout
-        control_frame = ctk.CTkFrame(parent, fg_color="#2B2B2B", corner_radius=8)
+        # Main Control Frame - compact horizontal layout (HUD Style)
+        control_frame = ctk.CTkFrame(parent, fg_color=self.COLORS['bg_input'], corner_radius=8, border_width=1, border_color=self.COLORS['border'])
         control_frame.pack(fill="x", padx=15, pady=(10, 10))
         
         row_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
@@ -510,16 +743,18 @@ class ScreenCaptureGUI(ctk.CTk):
         col1 = ctk.CTkFrame(row_frame, fg_color="transparent")
         col1.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
-        ctk.CTkLabel(col1, text="📁 File:", font=ctk.CTkFont(size=10, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(col1, text="📁 FILE:", font=ctk.CTkFont(size=10, weight="bold"), text_color=self.COLORS['accent_cyan']).pack(anchor="w")
         self.selected_file_label = ctk.CTkLabel(
             col1, text="No file selected", font=ctk.CTkFont(size=9),
-            text_color="#888888", anchor="w"
+            text_color=self.COLORS['text_dim'], anchor="w"
         )
         self.selected_file_label.pack(fill="x", pady=(2, 5))
         ctk.CTkButton(
-            col1, text="Browse", command=self.select_file_to_convert,
-            height=32, font=ctk.CTkFont(size=11),
-            fg_color="#3498DB", hover_color="#2980B9"
+            col1, text="BROWSE", command=self.select_file_to_convert,
+            height=32, font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=self.COLORS['accent_cyan'], hover_color="#0099CC",
+            text_color=self.COLORS['bg_dark'],
+            border_width=1, border_color=self.COLORS['accent_cyan']
         ).pack(fill="x")
         
         # Column 2: Category
@@ -527,10 +762,15 @@ class ScreenCaptureGUI(ctk.CTk):
         col2.pack(side="left", padx=5)
         col2.pack_propagate(False)
         
-        ctk.CTkLabel(col2, text="Category:", font=ctk.CTkFont(size=10, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(col2, text="CATEGORY:", font=ctk.CTkFont(size=10, weight="bold"), text_color=self.COLORS['accent_purple']).pack(anchor="w")
         self.category_selector = ctk.CTkComboBox(
             col2, values=["Audio", "Image", "Document", "Video"],
-            height=32, font=ctk.CTkFont(size=11), command=self.update_format_options
+            height=32, font=ctk.CTkFont(size=11), command=self.update_format_options,
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_purple'],
+            button_color=self.COLORS['accent_purple'],
+            button_hover_color="#7D3C98",
+            text_color=self.COLORS['text_primary']
         )
         self.category_selector.pack(fill="x", pady=(2, 0))
         self.category_selector.set("Audio")
@@ -540,10 +780,15 @@ class ScreenCaptureGUI(ctk.CTk):
         col3.pack(side="left", padx=5)
         col3.pack_propagate(False)
         
-        ctk.CTkLabel(col3, text="Format:", font=ctk.CTkFont(size=10, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(col3, text="FORMAT:", font=ctk.CTkFont(size=10, weight="bold"), text_color=self.COLORS['accent_green']).pack(anchor="w")
         self.output_format_selector = ctk.CTkComboBox(
             col3, values=["mp3", "wav", "m4a", "aac", "ogg", "flac"],
-            height=32, font=ctk.CTkFont(size=11)
+            height=32, font=ctk.CTkFont(size=11),
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_green'],
+            button_color=self.COLORS['accent_green'],
+            button_hover_color="#00CC70",
+            text_color=self.COLORS['text_primary']
         )
         self.output_format_selector.pack(fill="x", pady=(2, 0))
         self.output_format_selector.set("mp3")
@@ -554,36 +799,66 @@ class ScreenCaptureGUI(ctk.CTk):
         col4.pack_propagate(False)
         
         ctk.CTkButton(
-            col4, text="✨ Convert", command=self.start_conversion,
+            col4, text="✨ CONVERT", command=self.start_conversion,
             height=35, font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#2CC985", hover_color="#25A866"
+            fg_color=self.COLORS['accent_green'], hover_color="#00CC70",
+            text_color=self.COLORS['bg_dark'],
+            border_width=2, border_color=self.COLORS['accent_green']
         ).pack(fill="x", pady=(17, 3))
         
         ctk.CTkButton(
-            col4, text="📂 Folder", command=self.open_convert_output_folder,
-            height=28, font=ctk.CTkFont(size=10),
-            fg_color="#4A90E2", hover_color="#357ABD"
+            col4, text="📁 FOLDER", command=self.open_convert_output_folder,
+            height=28, font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.COLORS['accent_cyan'], hover_color="#0099CC",
+            text_color=self.COLORS['bg_dark'],
+            border_width=1, border_color=self.COLORS['accent_cyan']
         ).pack(fill="x")
         
-        # Conversion Log - MAXIMIZED
-        log_frame = ctk.CTkFrame(parent, fg_color="#1E1E1E", corner_radius=8)
+        # Conversion Log - MAXIMIZED (HUD Style)
+        log_frame = ctk.CTkFrame(parent, fg_color=self.COLORS['bg_input'], corner_radius=8, border_width=1, border_color=self.COLORS['border'])
         log_frame.pack(fill="both", expand=True, padx=15, pady=(0, 10))
         
         log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
         log_header.pack(fill="x", padx=10, pady=(8, 5))
         
-        ctk.CTkLabel(log_header, text="📋 Log", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+        ctk.CTkLabel(log_header, text="📋 CONVERSION LOG", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.COLORS['accent_purple']).pack(side="left")
         ctk.CTkButton(
-            log_header, text="Clear", command=lambda: self.convert_output_text.delete("1.0", "end"),
-            height=24, width=60, font=ctk.CTkFont(size=10),
-            fg_color="#3B3B3B", hover_color="#4B4B4B"
+            log_header, text="CLEAR", command=lambda: self.convert_output_text.delete("1.0", "end"),
+            height=24, width=60, font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=self.COLORS['accent_red'], hover_color="#CC0044",
+            text_color=self.COLORS['text_primary'],
+            border_width=1, border_color=self.COLORS['accent_red']
         ).pack(side="right")
         
-        self.convert_output_text = ctk.CTkTextbox(log_frame, font=ctk.CTkFont(size=10), wrap="word")
+        self.convert_output_text = ctk.CTkTextbox(
+            log_frame, font=ctk.CTkFont(size=10), wrap="word",
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_purple'],
+            text_color=self.COLORS['text_primary'],
+            border_width=1
+        )
         self.convert_output_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
         # Welcome message
         self.convert_output_text.insert("1.0", "🎉 Universal Converter | 49+ formats | 4 categories\n📂 Output: temp/{category}/\n\n")
+    
+    def _show_admin_info(self):
+        """Show information about administrator mode and stealth mode"""
+        messagebox.showinfo(
+            "Administrator Mode Info",
+            "⚠️ Running in Standard Mode\n\n"
+            "For full Stealth Mode capabilities:\n\n"
+            "1. Close this application\n"
+            "2. Right-click on the app/script\n"
+            "3. Select 'Run as administrator'\n\n"
+            "Stealth Mode Benefits:\n"
+            "✅ PrtSc key is swallowed (invisible to browser)\n"
+            "✅ Full-screen apps stay focused\n"
+            "✅ True stealth operation\n\n"
+            "Current Mode:\n"
+            "📋 Fallback Mode (works without admin)\n"
+            "⚠️ Browser may also save screenshot"
+        )
         
     def toggle_api_visibility(self):
         """Hiện/ẩn API key"""
@@ -707,6 +982,15 @@ class ScreenCaptureGUI(ctk.CTk):
         if choice != "Custom":
             self.prompt_text.delete("1.0", "end")
             self.prompt_text.insert("1.0", templates.get(choice, ""))
+    
+    def on_notification_theme_changed(self, selection):
+        """Xử lý khi thay đổi notification theme"""
+        if "Dark" in selection or "Black" in selection:
+            self.notification_theme = "dark"
+        else:
+            self.notification_theme = "white"
+        self.save_config()
+        self.log_output(f"🔔 Notification theme: {self.notification_theme.upper()}\n")
             
     def load_default_prompt(self):
         """Load prompt mặc định"""
@@ -743,18 +1027,52 @@ class ScreenCaptureGUI(ctk.CTk):
             messagebox.showerror("Error", "Vui lòng nhập prompt!")
             return
             
-        # Bắt đầu listener
+        # Bắt đầu keyboard hook (stealth mode) với fallback
         self.is_running = True
-        self.listener = keyboard.Listener(on_press=self.on_key_press)
-        self.listener.start()
         
-        # Cập nhật UI
+        # Try stealth mode first (keyboard hook)
+        try:
+            self.keyboard_hook = KeyboardHookManager(callback=self.on_prtsc_pressed)
+            self.keyboard_hook.start()
+            self.stealth_mode = True
+            self.log_output("🕵️ Stealth Mode: ACTIVE (Low-level hook)\n")
+        except RuntimeError as e:
+            # Fallback to pynput if hook fails
+            self.keyboard_hook = None
+            self.stealth_mode = False
+            
+            # Lazy import pynput only when needed as fallback
+            if _import_pynput():
+                self.log_output("⚠️ Stealth Mode: UNAVAILABLE (Admin required)\n")
+                self.log_output("📌 Fallback Mode: Using standard keyboard listener\n")
+                self.log_output(f"   Reason: {str(e)}\n\n")
+                
+                # Use pynput as fallback
+                self.pynput_listener = pynput_keyboard.Listener(on_press=self._on_key_press_fallback)
+                self.pynput_listener.start()
+            else:
+                self.is_running = False
+                self.log_output(f"❌ Error: {str(e)}\n")
+                messagebox.showerror(
+                    "Keyboard Hook Failed",
+                    f"{str(e)}\n\nPlease run the application as Administrator for Stealth Mode."
+                )
+                return
+        
+        # Cập nhật UI (HUD Style)
         self.start_button.configure(
-            text="⏹️ Stop Listening",
-            fg_color="#E74C3C",
-            hover_color="#C0392B"
+            text="⏹ DISENGAGE STEALTH" if self.stealth_mode else "⏹ STOP LISTENING",
+            fg_color=self.COLORS['accent_red'],
+            hover_color="#CC0044",
+            text_color=self.COLORS['text_primary'],
+            border_color=self.COLORS['accent_red']
         )
-        self.status_label.configure(text="🟢 Running", text_color="#2CC985")
+        
+        # Show stealth status
+        if self.stealth_mode:
+            self.status_label.configure(text="🟢 STEALTH ACTIVE", text_color=self.COLORS['accent_green'])
+        else:
+            self.status_label.configure(text="🟡 FALLBACK MODE", text_color=self.COLORS['accent_yellow'])
         
         self.log_output("🚀 Đã bắt đầu lắng nghe phím PrtSc!\n")
         self.log_output(f"📝 Prompt: {self.current_prompt[:50]}...\n")
@@ -763,26 +1081,42 @@ class ScreenCaptureGUI(ctk.CTk):
     def stop_listening(self):
         """Dừng lắng nghe"""
         self.is_running = False
-        if self.listener:
-            self.listener.stop()
-            self.listener = None
+        
+        # Stop keyboard hook if active
+        if self.keyboard_hook:
+            self.keyboard_hook.stop()
+            self.keyboard_hook = None
+        
+        # Stop pynput listener if active
+        if self.pynput_listener:
+            self.pynput_listener.stop()
+            self.pynput_listener = None
+        
+        self.stealth_mode = False
             
-        # Cập nhật UI
+        # Cập nhật UI (HUD Style)
         self.start_button.configure(
-            text="▶️ Start Listening",
-            fg_color="#2CC985",
-            hover_color="#25A866"
+            text="▶ ENGAGE STEALTH MODE",
+            fg_color=self.COLORS['accent_green'],
+            hover_color="#00CC70",
+            text_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_green']
         )
-        self.status_label.configure(text="⭕ Stopped", text_color="gray")
+        self.status_label.configure(text="⭕ OFFLINE", text_color=self.COLORS['text_dim'])
         
         self.log_output("\n⏹️ Đã dừng lắng nghe!\n")
         self.log_output("=" * 60 + "\n\n")
         
-    def on_key_press(self, key):
-        """Xử lý sự kiện nhấn phím"""
+    def on_prtsc_pressed(self):
+        """Callback khi PrtSc được nhấn (từ keyboard hook)"""
+        self.log_output("🎯 Phát hiện nhấn PrtSc (Stealth Mode)!\n")
+        threading.Thread(target=self.process_screenshot, daemon=True).start()
+    
+    def _on_key_press_fallback(self, key):
+        """Fallback key handler khi không có admin (pynput)"""
         try:
-            if key == keyboard.Key.print_screen:
-                self.log_output("🎯 Phát hiện nhấn PrtSc!\n")
+            if key == pynput_keyboard.Key.print_screen:
+                self.log_output("🎯 Phát hiện nhấn PrtSc (Fallback Mode)!\n")
                 threading.Thread(target=self.process_screenshot, daemon=True).start()
         except AttributeError:
             pass
@@ -796,18 +1130,17 @@ class ScreenCaptureGUI(ctk.CTk):
         self.is_processing = True
         
         try:
-            # Chụp màn hình
+            # Chụp màn hình với context manager (auto-close)
             self.log_output("📸 Đang chụp màn hình...\n")
-            screenshot = ImageGrab.grab()
-            
-            # Gửi đến Gemini
-            self.log_output(f"🤖 Đang gửi đến {self.gemini_model}...\n")
-            response = self.model.generate_content([
-                self.current_prompt,
-                screenshot
-            ])
-            
-            result = response.text
+            with screenshot_context() as screenshot:
+                # Gửi đến Gemini
+                self.log_output(f"🤖 Đang gửi đến {self.gemini_model}...\n")
+                response = self.model.generate_content([
+                    self.current_prompt,
+                    screenshot
+                ])
+                
+                result = response.text
             
             # Hiển thị kết quả
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -824,26 +1157,84 @@ class ScreenCaptureGUI(ctk.CTk):
                 "result": result
             })
             
-            # Hiển thị Windows Toast Notification (gọi trực tiếp từ thread)
+            # Hiển thị HUD notification (non-intrusive, auto-dismiss)
             preview = result[:200] + "..." if len(result) > 200 else result
-            self.show_system_notification(
+            self._show_hud_notification(
                 title="✅ Phân tích hoàn tất!",
                 message=f"[{timestamp}] {self.gemini_model}\n\n{preview}",
-                timeout=5
+                notification_type="success"
             )
             
         except Exception as e:
             error_msg = f"❌ Lỗi: {str(e)}"
             self.log_output(f"{error_msg}\n")
-            # Hiển thị thông báo lỗi (gọi trực tiếp từ thread)
-            self.show_system_notification(
+            # Hiển thị HUD error notification
+            self._show_hud_notification(
                 title="❌ Lỗi phân tích",
                 message=str(e),
-                timeout=8
+                notification_type="error"
             )
         finally:
             self.is_processing = False
+    
+    def _poll_notifications(self):
+        """Poll notification queue và hiển thị trong main thread"""
+        try:
+            while True:
+                # Non-blocking check
+                try:
+                    notif_data = self._notification_queue.get_nowait()
+                    self._do_show_notification(notif_data)
+                except queue.Empty:
+                    break
+        except Exception as e:
+            print(f"[HUD] Poll error: {e}")
+        finally:
+            # Schedule next poll (every 100ms)
+            self.after(100, self._poll_notifications)
+    
+    def _do_show_notification(self, data):
+        """Actually show the notification (runs in main thread)"""
+        try:
+            print(f"[HUD] Creating notification: {data['title']}")
+            # Use self as parent - HUD uses WS_EX_NOACTIVATE so won't affect main window
+            # Get user's preferred color theme
+            theme = getattr(self, 'notification_theme', 'white')
+            notif = HUDNotification(
+                parent=self,
+                title=data['title'],
+                message=data['message'],
+                notification_type=data['notification_type'],
+                duration_ms=3000,           # Exactly 3 seconds
+                position="bottom-right",    # Bottom-right corner
+                click_through=True,         # Mouse clicks pass through
+                fade_in=False,              # Instant appear
+                color_theme=theme           # User's preferred theme
+            )
+            print(f"[HUD] Notification displayed: {notif}")
+        except Exception as e:
+            print(f"[HUD] Error creating notification: {e}")
+            import traceback
+            traceback.print_exc()
             
+    def _show_hud_notification(self, title, message, notification_type="info"):
+        """Hiển thị HUD notification (non-intrusive, WS_EX_NOACTIVATE)
+        
+        Thread-safe: có thể gọi từ worker thread.
+        
+        Args:
+            title: Tiêu đề notification
+            message: Nội dung message
+            notification_type: Loại notification (success, error, warning, info)
+        """
+        # Put into queue - main thread will poll and display
+        print(f"[HUD] Queueing notification: {title}")
+        self._notification_queue.put({
+            'title': title,
+            'message': message,
+            'notification_type': notification_type
+        })
+    
     def log_output(self, message):
         """Ghi log vào output text (auto-detect tab)"""
         # Ghi vào tab audio nếu hiện tại đang ở tab audio
@@ -899,37 +1290,6 @@ class ScreenCaptureGUI(ctk.CTk):
     def hide_notification(self):
         """Ẩn thông báo"""
         self.notification_frame.pack_forget()
-    
-    def show_system_notification(self, title, message, timeout=10):
-        """
-        Hiển thị Windows Toast Notification
-        
-        Args:
-            title: Tiêu đề thông báo
-            message: Nội dung thông báo
-            timeout: Thời gian hiển thị (giây) - winotify sử dụng 'short' hoặc 'long'
-        """
-        try:
-            # Tạo notification
-            toast = Notification(
-                app_id="SnapCapAI",
-                title=title,
-                msg=message,
-                duration="long" if timeout > 5 else "short"
-            )
-            
-            # Thêm âm thanh
-            toast.set_audio(audio.Default, loop=False)
-            
-            # Hiển thị trực tiếp (không dùng thread vì đã trong thread rồi)
-            toast.show()
-            
-        except Exception as e:
-            print(f"Lỗi hiển thị system notification: {e}")
-            import traceback
-            traceback.print_exc()
-            # Fallback: Hiển thị trên window nếu system notification thất bại
-            self.show_notification(f"{title}: {message}", "info", duration=5000)
         
     def minimize_to_tray(self):
         """Thu nhỏ xuống system tray"""
@@ -1025,6 +1385,7 @@ class ScreenCaptureGUI(ctk.CTk):
                     self.current_prompt = config.get('prompt', '')
                     self.window_width = config.get('window_width', 1280)
                     self.window_height = config.get('window_height', 800)
+                    self.notification_theme = config.get('notification_theme', 'white')
                 print(f"✅ Loaded config from {config_file}")
             except json.JSONDecodeError as e:
                 print(f"❌ Lỗi parse JSON: {e}")
@@ -1035,7 +1396,7 @@ class ScreenCaptureGUI(ctk.CTk):
             print(f"⚠️ File {config_file} không tồn tại, sẽ tạo mới khi lưu config")
                 
     def save_config(self):
-        """Lưu cấu hình vào file"""
+        """Lưu cấu hình vào file (atomic write)"""
         config = {
             'api_key': self.api_key,
             'azure_api_key': self.azure_api_key,
@@ -1044,12 +1405,14 @@ class ScreenCaptureGUI(ctk.CTk):
             'gemini_model': self.gemini_model,
             'prompt': self.prompt_text.get("1.0", "end-1c").strip() if hasattr(self, 'prompt_text') else '',
             'window_width': getattr(self, 'window_width', 1280),
-            'window_height': getattr(self, 'window_height', 800)
+            'window_height': getattr(self, 'window_height', 800),
+            'notification_theme': getattr(self, 'notification_theme', 'white')
         }
         try:
-            with open("config.json", 'w', encoding='utf-8') as f:
+            # Use SafeFileWriter for atomic writes (prevents corruption)
+            with SafeFileWriter("config.json") as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
-            print(f"✅ Saved config to config.json")
+            print(f"✅ Saved config to config.json (atomic write)")
         except Exception as e:
             print(f"❌ Lỗi save config: {e}")
             messagebox.showerror("Error", f"Không thể lưu config:\n{str(e)}")
@@ -1496,7 +1859,25 @@ class ScreenCaptureGUI(ctk.CTk):
 
 
 def main():
-    """Hàm main"""
+    """Hàm main với auto-elevation to administrator"""
+    # Check if running as admin
+    if not is_admin():
+        print("⚠️  Not running as Administrator")
+        print("🔄 Requesting administrator privileges for Stealth Mode...")
+        
+        # Try to elevate
+        if run_as_admin():
+            print("✅ Elevated successfully. Restarting...")
+            sys.exit(0)
+        else:
+            print("❌ Failed to elevate. Running in Fallback Mode...")
+            print("   (Stealth Mode will not be available)")
+            # Continue anyway - will use pynput fallback
+    else:
+        print("✅ Running with Administrator privileges")
+        print("🕵️  Stealth Mode will be available")
+    
+    # Start the application
     app = ScreenCaptureGUI()
     app.mainloop()
 
