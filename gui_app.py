@@ -116,6 +116,7 @@ class ScreenCaptureGUI(ctk.CTk):
         self.window_width = 1280
         self.window_height = 800
         self.notification_theme = "white"  # "white" or "dark"
+        self.notification_duration = 3  # seconds (1-10)
         
         # Load config first để lấy window size và API keys
         self.load_config()
@@ -591,6 +592,33 @@ class ScreenCaptureGUI(ctk.CTk):
         else:
             self.notif_theme_selector.set("⬜ White")
         
+        # Duration label
+        ctk.CTkLabel(
+            notif_row,
+            text="⏱️",
+            font=ctk.CTkFont(size=14),
+            text_color=self.COLORS['accent_cyan']
+        ).pack(side="left", padx=(15, 5))
+        
+        # Duration selector (1-10 seconds)
+        self.notif_duration_selector = ctk.CTkComboBox(
+            notif_row,
+            values=["1s", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s", "10s"],
+            command=self.on_notification_duration_changed,
+            width=70,
+            height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color=self.COLORS['bg_dark'],
+            border_color=self.COLORS['accent_cyan'],
+            button_color=self.COLORS['accent_cyan'],
+            button_hover_color="#0099CC",
+            text_color=self.COLORS['text_primary']
+        )
+        self.notif_duration_selector.pack(side="left")
+        # Set current duration value
+        duration = getattr(self, 'notification_duration', 3)
+        self.notif_duration_selector.set(f"{duration}s")
+        
     def create_output_section(self, parent):
         """Tạo phần hiển thị kết quả"""
         
@@ -991,6 +1019,17 @@ class ScreenCaptureGUI(ctk.CTk):
             self.notification_theme = "white"
         self.save_config()
         self.log_output(f"🔔 Notification theme: {self.notification_theme.upper()}\n")
+    
+    def on_notification_duration_changed(self, selection):
+        """Xử lý khi thay đổi notification duration"""
+        # Parse "3s" -> 3
+        try:
+            duration = int(selection.replace("s", ""))
+            self.notification_duration = max(1, min(10, duration))  # Clamp 1-10
+            self.save_config()
+            self.log_output(f"⏱️ Notification duration: {self.notification_duration}s\n")
+        except ValueError:
+            pass
             
     def load_default_prompt(self):
         """Load prompt mặc định"""
@@ -1198,14 +1237,15 @@ class ScreenCaptureGUI(ctk.CTk):
         try:
             print(f"[HUD] Creating notification: {data['title']}")
             # Use self as parent - HUD uses WS_EX_NOACTIVATE so won't affect main window
-            # Get user's preferred color theme
+            # Get user's preferred color theme and duration
             theme = getattr(self, 'notification_theme', 'white')
+            duration = getattr(self, 'notification_duration', 3) * 1000  # Convert to ms
             notif = HUDNotification(
                 parent=self,
                 title=data['title'],
                 message=data['message'],
                 notification_type=data['notification_type'],
-                duration_ms=3000,           # Exactly 3 seconds
+                duration_ms=duration,       # User's preferred duration
                 position="bottom-right",    # Bottom-right corner
                 click_through=True,         # Mouse clicks pass through
                 fade_in=False,              # Instant appear
@@ -1386,6 +1426,7 @@ class ScreenCaptureGUI(ctk.CTk):
                     self.window_width = config.get('window_width', 1280)
                     self.window_height = config.get('window_height', 800)
                     self.notification_theme = config.get('notification_theme', 'white')
+                    self.notification_duration = config.get('notification_duration', 3)
                 print(f"✅ Loaded config from {config_file}")
             except json.JSONDecodeError as e:
                 print(f"❌ Lỗi parse JSON: {e}")
@@ -1406,7 +1447,8 @@ class ScreenCaptureGUI(ctk.CTk):
             'prompt': self.prompt_text.get("1.0", "end-1c").strip() if hasattr(self, 'prompt_text') else '',
             'window_width': getattr(self, 'window_width', 1280),
             'window_height': getattr(self, 'window_height', 800),
-            'notification_theme': getattr(self, 'notification_theme', 'white')
+            'notification_theme': getattr(self, 'notification_theme', 'white'),
+            'notification_duration': getattr(self, 'notification_duration', 3)
         }
         try:
             # Use SafeFileWriter for atomic writes (prevents corruption)

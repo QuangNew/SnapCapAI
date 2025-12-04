@@ -18,8 +18,9 @@ SnapCapAI cho phép bạn nhấn **PrtSc** để chụp màn hình và nhận k�
 - **Không chiếm focus** - Sử dụng WS_EX_NOACTIVATE, browser.onblur không trigger
 - **Click-through** - Click chuột xuyên qua thông báo tới ứng dụng bên dưới
 - **Ẩn khỏi Alt+Tab** - Không xuất hiện trong danh sách cửa sổ
-- **Tự động biến mất** sau 3 giây với hiệu ứng fade
+- **Thời gian tùy chỉnh** - Chọn từ 1-10 giây (mặc định 3 giây)
 - **2 theme màu**: Trắng (Light) hoặc Đen (Dark) - cả 2 đều có chữ mờ để tránh bị phát hiện
+- **Hiệu ứng fade** - Biến mất mượt mà
 
 ### 🤖 AI Analysis (Phân tích AI)
 - **Google Gemini** - Hỗ trợ các model: 2.0 Flash, 2.5 Pro, 2.5 Flash
@@ -84,6 +85,7 @@ python gui_app.py
 2. Click **"💾 SAVE ALL CREDENTIALS"**
 3. (Tùy chọn) Chọn **Prompt Template** phù hợp
 4. (Tùy chọn) Chọn **Notification Theme**: ⬜ White hoặc ⬛ Dark
+5. (Tùy chọn) Chọn **Notification Duration**: ⏱️ 1s - 10s (mặc định 3s)
 
 ### Bước 2: Bắt đầu
 1. Click **"▶ ENGAGE STEALTH MODE"**
@@ -92,7 +94,7 @@ python gui_app.py
 ### Bước 3: Sử dụng
 1. Mở browser/game/video bất kỳ
 2. Nhấn **PrtSc** khi muốn chụp & phân tích
-3. Kết quả hiển thị ở góc **phải dưới màn hình** (3 giây)
+3. Kết quả hiển thị ở góc **phải dưới màn hình**
 4. Tiếp tục làm việc - không cần chuyển cửa sổ
 
 ### Bước 4: Thu nhỏ
