@@ -6,13 +6,53 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 
 ---
 
+## ⚠️ Lưu ý quan trọng (13/12/2025)
+
+> **Google Free Tier hiện chỉ hỗ trợ `gemini-2.5-flash`**
+> 
+> Các model khác (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) yêu cầu:
+> - Tài khoản trả phí (billing enabled)
+> - Hoặc đã hết quota free tier
+>
+> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) cho free tier.
+
+---
+
 ## ✨ Tính năng
 
-- **🕵️ Stealth Mode** - Hook keyboard cấp thấp, nuốt phím PrtSc
-- **🎯 HUD Overlay** - Thông báo TopMost không chiếm focus (WS_EX_NOACTIVATE)
-- **🤖 AI Analysis** - Google Gemini 2.0/2.5/3.0
-- **🎤 Audio Transcription** - Azure Speech-to-Text (tùy chọn)
-- **🔄 File Converter** - 49+ định dạng qua CloudConvert (tùy chọn)
+### 🕵️ Stealth Mode
+- Hook keyboard cấp thấp (WH_KEYBOARD_LL)
+- Nuốt phím PrtSc - Browser/Game không biết bạn đã chụp
+- Yêu cầu quyền Administrator
+
+### 🎯 HUD Overlay
+- Thông báo TopMost không chiếm focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
+- Click-through - Không ảnh hưởng thao tác
+- 2 theme: ⬜ White (dim text) / ⬛ Dark
+- Tùy chỉnh duration: 1-10 giây
+
+### 📸 Batch Capture
+- Chụp nhiều ảnh liên tiếp (tối đa 10 ảnh)
+- Debounce 5 giây - Reset timer mỗi lần chụp
+- Tự động gộp và gửi tất cả ảnh sau 5s không hoạt động
+
+### 🖱️ Double-Click Reveal
+- Kết quả AI chỉ hiện khi double-click chuột trong 1 giây
+- Bảo mật - Người khác không thấy kết quả ngay lập tức
+
+### 🤖 AI Analysis
+- Google Gemini API (2.5-flash mặc định)
+- Prompt templates có sẵn hoặc tự tạo
+- Hot-switch model khi đang chạy
+
+### 🎤 Audio Transcription (Tùy chọn)
+- Azure Speech-to-Text
+- Ghi âm trực tiếp hoặc upload file
+- Transcribe realtime từ microphone
+
+### 🔄 File Converter (Tùy chọn)
+- 49+ định dạng qua CloudConvert API
+- Hỗ trợ: Audio, Image, Document, Video
 
 ---
 
@@ -23,7 +63,7 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 git clone <repo-url> SnapCapAI
 cd SnapCapAI
 
-# Install
+# Install dependencies
 pip install -r requirements.txt
 
 # Run (tự động yêu cầu quyền Admin)
@@ -34,31 +74,40 @@ python gui_app.py
 
 ## 🔑 API Keys
 
-| Service | Bắt buộc | Link |
-|---------|----------|------|
-| **Gemini** | ✅ | [makersuite.google.com](https://makersuite.google.com/app/apikey) |
-| Azure Speech | ❌ | [portal.azure.com](https://portal.azure.com) |
-| CloudConvert | ❌ | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
+| Service | Bắt buộc | Ghi chú | Link |
+|---------|----------|---------|------|
+| **Gemini** | ✅ | Free tier chỉ có 2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| Azure Speech | ❌ | Cho audio transcription | [portal.azure.com](https://portal.azure.com) |
+| CloudConvert | ❌ | Cho file conversion | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
 
 ---
 
-## 🎮 Sử dụng
+## 🎮 Cách sử dụng
 
-1. Nhập Gemini API Key → **Save**
-2. Click **"▶ ENGAGE STEALTH MODE"**
-3. Nhấn **PrtSc** bất kỳ đâu
-4. Kết quả hiện ở góc phải dưới màn hình (3 giây)
+### Cơ bản
+1. Nhập Gemini API Key → **Save All Credentials**
+2. Chọn model: `gemini-2.5-flash` (khuyến nghị cho free tier)
+3. Click **"▶ ENGAGE STEALTH MODE"**
+4. Nhấn **PrtSc** để chụp ảnh
+5. Chờ 5s hoặc chụp thêm (tối đa 10 ảnh)
+6. **Double-click chuột** để hiện kết quả
 
-**Chế độ:**
-- 👑 **Admin Mode** (xanh) - Stealth Mode đầy đủ
-- ⚠️ **Standard Mode** (vàng) - Fallback, có thể bị phát hiện
+### Chế độ hoạt động
+| Trạng thái | Màu | Mô tả |
+|------------|-----|-------|
+| 👑 Admin Mode | 🟢 Xanh | Stealth Mode đầy đủ, PrtSc bị nuốt |
+| ⚠️ Standard Mode | 🟡 Vàng | Fallback (pynput), có thể bị detect |
+
+### Tùy chỉnh Notification
+- **Theme:** ⬜ White / ⬛ Dark (dim text cho stealth)
+- **Duration:** 1s - 10s
 
 ---
 
 ## 🔧 Build EXE
 
 ```powershell
-# Cách 1: Batch file
+# Cách 1: Batch file (khuyến nghị)
 .\setup-and-build.bat
 
 # Cách 2: Thủ công
@@ -70,36 +119,65 @@ Output: `dist\SnapCapAI.exe`
 
 ---
 
-## 📁 Cấu trúc
+## 📁 Cấu trúc Project
 
 ```
 SnapCapAI/
-├── gui_app.py              # Main app
-├── keyboard_hook_manager.py # Low-level keyboard hook
+├── gui_app.py               # Main application
+├── keyboard_hook_manager.py # Low-level keyboard hook (WH_KEYBOARD_LL)
 ├── hud_notification.py      # HUD overlay (WS_EX_NOACTIVATE)
-├── resource_manager.py      # Context managers
-├── audio_handler.py         # Azure Speech
-├── universal_converter.py   # CloudConvert wrapper
-├── config.json             # API keys
-└── requirements.txt
+├── resource_manager.py      # Context managers, SafeFileWriter
+├── audio_handler.py         # Azure Speech integration
+├── cloudconvert_handler.py  # CloudConvert API wrapper
+├── universal_converter.py   # Multi-format converter
+├── config.json              # Saved settings & API keys
+├── requirements.txt         # Python dependencies
+├── SnapCapAI.spec          # PyInstaller spec
+└── temp/                    # Output folders
+    ├── audio/
+    ├── image/
+    ├── document/
+    ├── video/
+    └── speechtotext_output/
 ```
 
 ---
 
 ## ❓ Troubleshooting
 
-| Vấn đề | Giải pháp |
-|--------|-----------|
-| PrtSc không detect | Chạy với quyền Admin |
-| HUD chiếm focus | Kiểm tra Windows 10/11, restart app |
-| API Error | Kiểm tra API key, internet |
+| Vấn đề | Nguyên nhân | Giải pháp |
+|--------|-------------|-----------|
+| PrtSc không detect | Không có quyền Admin | Right-click → Run as Administrator |
+| "429 Quota exceeded" | Hết quota free tier hoặc model không hỗ trợ | Đổi sang `gemini-2.5-flash` |
+| HUD chiếm focus | Bug Windows cũ | Restart app, kiểm tra Windows 10/11 |
+| API Error | Key sai hoặc hết hạn | Kiểm tra lại API key |
+| Model không đổi | Bug cũ (đã fix) | Cập nhật code mới nhất |
+
+---
+
+## 🔄 Changelog
+
+### v1.2.0 (13/12/2025)
+- ✅ Hot-switch model khi đang chạy
+- ✅ Mặc định `gemini-2.5-flash` (free tier compatible)
+- ✅ Batch capture (5s debounce, max 10 ảnh)
+- ✅ Double-click to reveal results
+- ✅ Notification theme & duration settings
+
+### v1.1.0
+- ✅ HUD Notification với click-through
+- ✅ Stealth Mode với keyboard hook
+- ✅ Admin auto-elevation
+
+### v1.0.0
+- 🚀 Initial release
 
 ---
 
 ## 📜 License
 
-MIT License
+MIT License - Free to use and modify.
 
 ---
 
-**Built by QuangNew | December 2025**
+**Built with ❤️ by QuangNew | December 2025**
