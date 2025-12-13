@@ -1,45 +1,58 @@
-# 🤖 SnapCapAI - AI Screen Capture & Analysis
+# 🤖 SnapCapAI
 
-**Chụp màn hình thông minh với AI - Không làm gián đoạn bất kỳ ứng dụng nào**
+**AI-Powered Screen Capture with Stealth Mode**
 
-SnapCapAI cho phép bạn nhấn **PrtSc** để chụp màn hình và nhận kết quả phân tích AI ngay lập tức, mà không làm gián đoạn browser, game, video hay bất kỳ ứng dụng toàn màn hình nào đang chạy.
+Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián đoạn ứng dụng đang chạy (browser, game, video).
 
 ---
 
-## ✨ Tính năng chính
+## ⚠️ Lưu ý quan trọng (13/12/2025)
 
-### 🕵️ Stealth Mode (Chế độ ẩn)
-- **Hook keyboard cấp thấp** - Chặn và xử lý phím PrtSc trước khi hệ thống nhận được
-- **Không làm mất focus** - Browser/game vẫn giữ nguyên trạng thái active
-- **Yêu cầu quyền Admin** để hoạt động đầy đủ
+> **Google Free Tier hiện chỉ hỗ trợ `gemini-2.5-flash`**
+> 
+> Các model khác (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) yêu cầu:
+> - Tài khoản trả phí (billing enabled)
+> - Hoặc đã hết quota free tier
+>
+> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) cho free tier.
 
-### 🎯 HUD Notification (Thông báo overlay)
-- **Hiển thị trên mọi ứng dụng** - TopMost window luôn ở trên cùng
-- **Không chiếm focus** - Sử dụng WS_EX_NOACTIVATE, browser.onblur không trigger
-- **Click-through** - Click chuột xuyên qua thông báo tới ứng dụng bên dưới
-- **Ẩn khỏi Alt+Tab** - Không xuất hiện trong danh sách cửa sổ
-- **Thời gian tùy chỉnh** - Chọn từ 1-10 giây (mặc định 3 giây)
-- **2 theme màu**: Trắng (Light) hoặc Đen (Dark) - cả 2 đều có chữ mờ để tránh bị phát hiện
-- **Hiệu ứng fade** - Biến mất mượt mà
+---
 
-### 🤖 AI Analysis (Phân tích AI)
-- **Google Gemini** - Hỗ trợ các model: 2.0 Flash, 2.5 Pro, 2.5 Flash
-- **Prompt tùy chỉnh** - Chọn template hoặc viết prompt riêng
-- **Các template có sẵn**:
-  - Chỉ trả lời câu hỏi (mặc định)
-  - Code Analysis
-  - Translate to Vietnamese
-  - Math Solver
-  - Text Extraction
+## ✨ Tính năng
+
+### 🕵️ Stealth Mode
+- Hook keyboard cấp thấp (WH_KEYBOARD_LL)
+- Nuốt phím PrtSc - Browser/Game không biết bạn đã chụp
+- Yêu cầu quyền Administrator
+
+### 🎯 HUD Overlay
+- Thông báo TopMost không chiếm focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
+- Click-through - Không ảnh hưởng thao tác
+- 2 theme: ⬜ White (dim text) / ⬛ Dark
+- Tùy chỉnh duration: 1-10 giây
+
+### 📸 Batch Capture
+- Chụp nhiều ảnh liên tiếp (tối đa 10 ảnh)
+- Debounce 5 giây - Reset timer mỗi lần chụp
+- Tự động gộp và gửi tất cả ảnh sau 5s không hoạt động
+
+### 🖱️ Double-Click Reveal
+- Kết quả AI chỉ hiện khi double-click chuột trong 1 giây
+- Bảo mật - Người khác không thấy kết quả ngay lập tức
+
+### 🤖 AI Analysis
+- Google Gemini API (2.5-flash mặc định)
+- Prompt templates có sẵn hoặc tự tạo
+- Hot-switch model khi đang chạy
 
 ### 🎤 Audio Transcription (Tùy chọn)
-- **Azure Speech-to-Text** - Chuyển đổi giọng nói thành văn bản
-- **Ghi âm trực tiếp** từ microphone
-- **Hỗ trợ nhiều ngôn ngữ** bao gồm tiếng Việt
+- Azure Speech-to-Text
+- Ghi âm trực tiếp hoặc upload file
+- Transcribe realtime từ microphone
 
 ### 🔄 File Converter (Tùy chọn)
-- **CloudConvert API** - Chuyển đổi 49+ định dạng file
-- **Hỗ trợ**: Audio, Image, Document (PDF, Word, Excel), Video
+- 49+ định dạng qua CloudConvert API
+- Hỗ trợ: Audio, Image, Document, Video
 
 ---
 
@@ -57,7 +70,7 @@ SnapCapAI cho phép bạn nhấn **PrtSc** để chụp màn hình và nhận k�
 git clone https://github.com/QuangNew/SnapCapAI.git
 cd SnapCapAI
 
-# Cài đặt dependencies
+# Install dependencies
 pip install -r requirements.txt
 
 # Chạy ứng dụng (tự động yêu cầu quyền Admin)
@@ -68,49 +81,33 @@ python gui_app.py
 
 ## 🔑 Cấu hình API Keys
 
-| Dịch vụ | Bắt buộc | Mục đích | Đăng ký |
-|---------|:--------:|----------|---------|
-| **Google Gemini** | ✅ | Phân tích ảnh bằng AI | [makersuite.google.com](https://makersuite.google.com/app/apikey) |
-| Azure Speech | ❌ | Chuyển giọng nói → text | [portal.azure.com](https://portal.azure.com) |
-| CloudConvert | ❌ | Chuyển đổi file | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
-
-> 💡 **Chỉ cần Gemini API Key** là có thể sử dụng tính năng chính (chụp & phân tích ảnh)
+| Service | Bắt buộc | Ghi chú | Link |
+|---------|----------|---------|------|
+| **Gemini** | ✅ | Free tier chỉ có 2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| Azure Speech | ❌ | Cho audio transcription | [portal.azure.com](https://portal.azure.com) |
+| CloudConvert | ❌ | Cho file conversion | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
 
 ---
 
-## 🎮 Hướng dẫn sử dụng
+## 🎮 Cách sử dụng
 
-### Bước 1: Cấu hình
-1. Mở ứng dụng → Nhập **Gemini API Key**
-2. Click **"💾 SAVE ALL CREDENTIALS"**
-3. (Tùy chọn) Chọn **Prompt Template** phù hợp
-4. (Tùy chọn) Chọn **Notification Theme**: ⬜ White hoặc ⬛ Dark
-5. (Tùy chọn) Chọn **Notification Duration**: ⏱️ 1s - 10s (mặc định 3s)
+### Cơ bản
+1. Nhập Gemini API Key → **Save All Credentials**
+2. Chọn model: `gemini-2.5-flash` (khuyến nghị cho free tier)
+3. Click **"▶ ENGAGE STEALTH MODE"**
+4. Nhấn **PrtSc** để chụp ảnh
+5. Chờ 5s hoặc chụp thêm (tối đa 10 ảnh)
+6. **Double-click chuột** để hiện kết quả
 
-### Bước 2: Bắt đầu
-1. Click **"▶ ENGAGE STEALTH MODE"**
-2. Ứng dụng sẽ chạy ngầm và lắng nghe phím PrtSc
+### Chế độ hoạt động
+| Trạng thái | Màu | Mô tả |
+|------------|-----|-------|
+| 👑 Admin Mode | 🟢 Xanh | Stealth Mode đầy đủ, PrtSc bị nuốt |
+| ⚠️ Standard Mode | 🟡 Vàng | Fallback (pynput), có thể bị detect |
 
-### Bước 3: Sử dụng
-1. Mở browser/game/video bất kỳ
-2. Nhấn **PrtSc** khi muốn chụp & phân tích
-3. Kết quả hiển thị ở góc **phải dưới màn hình**
-4. Tiếp tục làm việc - không cần chuyển cửa sổ
-
-### Bước 4: Thu nhỏ
-- Click **"🔽 MINIMIZE TO TRAY"** để ẩn vào khay hệ thống
-- Click icon ở khay để mở lại
-
----
-
-## 📊 Chế độ hoạt động
-
-| Chế độ | Biểu tượng | Mô tả | Yêu cầu |
-|--------|:----------:|-------|---------|
-| **Admin Mode** | 👑 Xanh | Stealth Mode đầy đủ, hook keyboard cấp thấp | Chạy với quyền Admin |
-| **Standard Mode** | ⚠️ Vàng | Fallback dùng pynput, có thể bị phát hiện | Không cần Admin |
-
-> ⚠️ **Khuyến nghị**: Luôn chạy với quyền Admin để có trải nghiệm tốt nhất
+### Tùy chỉnh Notification
+- **Theme:** ⬜ White / ⬛ Dark (dim text cho stealth)
+- **Duration:** 1s - 10s
 
 ---
 
@@ -119,7 +116,7 @@ python gui_app.py
 Tạo file thực thi (.exe) để sử dụng không cần Python:
 
 ```powershell
-# Cách 1: Sử dụng batch file
+# Cách 1: Batch file (khuyến nghị)
 .\setup-and-build.bat
 
 # Cách 2: Build thủ công
@@ -131,26 +128,26 @@ pyinstaller SnapCapAI.spec --clean
 
 ---
 
-## 📁 Cấu trúc dự án
+## 📁 Cấu trúc Project
 
 ```
 SnapCapAI/
-├── gui_app.py              # Ứng dụng chính (GUI)
-├── keyboard_hook_manager.py # Hook keyboard cấp thấp (Windows API)
+├── gui_app.py               # Main application
+├── keyboard_hook_manager.py # Low-level keyboard hook (WH_KEYBOARD_LL)
 ├── hud_notification.py      # HUD overlay (WS_EX_NOACTIVATE)
-├── resource_manager.py      # Quản lý tài nguyên (context managers)
-├── audio_handler.py         # Xử lý ghi âm + Azure Speech
-├── cloudconvert_handler.py  # Wrapper cho CloudConvert API
-├── universal_converter.py   # Chuyển đổi file đa định dạng
-├── config.json             # Lưu API keys và cài đặt
-├── requirements.txt        # Dependencies
-├── SnapCapAI.spec          # PyInstaller config
-├── setup-and-build.bat     # Script build tự động
-└── temp/                   # Folder chứa file tạm
+├── resource_manager.py      # Context managers, SafeFileWriter
+├── audio_handler.py         # Azure Speech integration
+├── cloudconvert_handler.py  # CloudConvert API wrapper
+├── universal_converter.py   # Multi-format converter
+├── config.json              # Saved settings & API keys
+├── requirements.txt         # Python dependencies
+├── SnapCapAI.spec          # PyInstaller spec
+└── temp/                    # Output folders
     ├── audio/
     ├── image/
     ├── document/
-    └── video/
+    ├── video/
+    └── speechtotext_output/
 ```
 
 ---
@@ -159,43 +156,39 @@ SnapCapAI/
 
 | Vấn đề | Nguyên nhân | Giải pháp |
 |--------|-------------|-----------|
-| PrtSc không hoạt động | Thiếu quyền Admin | Chạy lại với quyền Administrator |
-| Thông báo không hiện | Window bị ẩn | Restart ứng dụng, kiểm tra Windows 10/11 |
-| "API Error" | Key sai hoặc hết quota | Kiểm tra API key, internet connection |
-| App bị treo | Xử lý ảnh lớn | Chờ xử lý xong, kiểm tra console |
-| Build EXE lỗi | Thiếu module | Chạy `pip install -r requirements.txt` |
+| PrtSc không detect | Không có quyền Admin | Right-click → Run as Administrator |
+| "429 Quota exceeded" | Hết quota free tier hoặc model không hỗ trợ | Đổi sang `gemini-2.5-flash` |
+| HUD chiếm focus | Bug Windows cũ | Restart app, kiểm tra Windows 10/11 |
+| API Error | Key sai hoặc hết hạn | Kiểm tra lại API key |
+| Model không đổi | Bug cũ (đã fix) | Cập nhật code mới nhất |
 
 ---
 
-## 🔒 Bảo mật
+## 🔄 Changelog
 
-- API keys được lưu cục bộ trong `config.json`
-- Không gửi dữ liệu đến server ngoại trừ API của Google/Azure/CloudConvert
-- Ảnh chụp màn hình chỉ tồn tại trong RAM, không lưu file
+### v1.2.0 (13/12/2025)
+- ✅ Hot-switch model khi đang chạy
+- ✅ Mặc định `gemini-2.5-flash` (free tier compatible)
+- ✅ Batch capture (5s debounce, max 10 ảnh)
+- ✅ Double-click to reveal results
+- ✅ Notification theme & duration settings
 
----
+### v1.1.0
+- ✅ HUD Notification với click-through
+- ✅ Stealth Mode với keyboard hook
+- ✅ Admin auto-elevation
 
-## 🛠️ Công nghệ sử dụng
-
-- **Python 3.12+** - Ngôn ngữ chính
-- **CustomTkinter** - Modern UI framework
-- **ctypes + Windows API** - Low-level keyboard hook
-- **Google Generative AI** - Gemini models
-- **Azure Cognitive Services** - Speech-to-Text
-- **CloudConvert** - File conversion
-- **Pillow** - Image processing
-- **PyInstaller** - Build executable
+### v1.0.0
+- 🚀 Initial release
 
 ---
 
 ## 📜 License
 
-MIT License - Tự do sử dụng và chỉnh sửa
+MIT License - Free to use and modify.
 
 ---
 
 ## 👨‍💻 Tác giả
 
-**QuangNew** | December 2025
-
-[![GitHub](https://img.shields.io/badge/GitHub-QuangNew-black?style=flat-square&logo=github)](https://github.com/QuangNew)
+**Built with ❤️ by QuangNew | December 2025**

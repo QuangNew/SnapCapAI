@@ -111,12 +111,12 @@ class ScreenCaptureGUI(ctk.CTk):
         self.azure_api_key = ""
         self.azure_region = "southeastasia"
         self.cloudconvert_api_key = ""
-        self.gemini_model = "gemini-2.0-flash"
+        self.gemini_model = "gemini-2.5-flash"
         self.current_prompt = ""
         self.window_width = 1280
         self.window_height = 800
         self.notification_theme = "white"  # "white" or "dark"
-        self.notification_duration = 3  # seconds (1-10)
+        self.notification_duration = 3  # seconds
         
         # Load config first để lấy window size và API keys
         self.load_config()
@@ -153,11 +153,30 @@ class ScreenCaptureGUI(ctk.CTk):
         # Thread-safe notification queue
         self._notification_queue = queue.Queue()
         
+        # ===== BATCH CAPTURE SYSTEM =====
+        # Queue ảnh chờ gửi (max 10)
+        self._screenshot_batch = []
+        self._batch_timer = None
+        self._batch_lock = threading.Lock()
+        self.BATCH_DELAY_MS = 5000  # 5 seconds debounce
+        self.MAX_BATCH_SIZE = 10
+        
+        # ===== DOUBLE-CLICK TO SHOW RESULT =====
+        # Pending results chờ double-click
+        self._pending_results = queue.Queue()
+        self._last_click_time = 0
+        self._click_count = 0
+        self.DOUBLE_CLICK_THRESHOLD = 1.0  # 1 second
+        self._mouse_hook = None
+        
         # Tạo giao diện
         self.create_widgets()
         
         # Start notification polling loop
         self._poll_notifications()
+        
+        # Start double-click detection polling
+        self._poll_double_click()
         
         # Protocol đóng cửa sổ
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -377,7 +396,7 @@ class ScreenCaptureGUI(ctk.CTk):
         
         self.model_selector = ctk.CTkComboBox(
             all_apis_frame,
-            values=["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-pro"],
+            values=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-3-pro"],
             command=self.on_model_changed,
             height=26,
             font=ctk.CTkFont(size=11),
@@ -592,7 +611,7 @@ class ScreenCaptureGUI(ctk.CTk):
         else:
             self.notif_theme_selector.set("⬜ White")
         
-        # Duration label
+        # Duration selector
         ctk.CTkLabel(
             notif_row,
             text="⏱️",
@@ -600,7 +619,6 @@ class ScreenCaptureGUI(ctk.CTk):
             text_color=self.COLORS['accent_cyan']
         ).pack(side="left", padx=(15, 5))
         
-        # Duration selector (1-10 seconds)
         self.notif_duration_selector = ctk.CTkComboBox(
             notif_row,
             values=["1s", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s", "10s"],
@@ -615,7 +633,7 @@ class ScreenCaptureGUI(ctk.CTk):
             text_color=self.COLORS['text_primary']
         )
         self.notif_duration_selector.pack(side="left")
-        # Set current duration value
+        # Set current duration
         duration = getattr(self, 'notification_duration', 3)
         self.notif_duration_selector.set(f"{duration}s")
         
@@ -987,7 +1005,16 @@ class ScreenCaptureGUI(ctk.CTk):
         """Xử lý khi thay đổi model"""
         self.gemini_model = choice
         self.save_config()
-        self.log_output(f"✅ Đã thay đổi model thành: {choice}\n")
+        
+        # Reinitialize model if already running
+        if self.is_running and self.api_key:
+            try:
+                self.model = genai.GenerativeModel(self.gemini_model)
+                self.log_output(f"✅ Đã chuyển sang model: {choice}\n")
+            except Exception as e:
+                self.log_output(f"⚠️ Lỗi chuyển model: {e}\n")
+        else:
+            self.log_output(f"✅ Đã thay đổi model thành: {choice}\n")
             
     def on_prompt_changed(self, choice):
         """Xử lý khi thay đổi prompt template"""
@@ -1022,10 +1049,9 @@ class ScreenCaptureGUI(ctk.CTk):
     
     def on_notification_duration_changed(self, selection):
         """Xử lý khi thay đổi notification duration"""
-        # Parse "3s" -> 3
         try:
             duration = int(selection.replace("s", ""))
-            self.notification_duration = max(1, min(10, duration))  # Clamp 1-10
+            self.notification_duration = max(1, min(10, duration))
             self.save_config()
             self.log_output(f"⏱️ Notification duration: {self.notification_duration}s\n")
         except ValueError:
@@ -1149,65 +1175,118 @@ class ScreenCaptureGUI(ctk.CTk):
     def on_prtsc_pressed(self):
         """Callback khi PrtSc được nhấn (từ keyboard hook)"""
         self.log_output("🎯 Phát hiện nhấn PrtSc (Stealth Mode)!\n")
-        threading.Thread(target=self.process_screenshot, daemon=True).start()
+        self._queue_screenshot()
     
     def _on_key_press_fallback(self, key):
         """Fallback key handler khi không có admin (pynput)"""
         try:
             if key == pynput_keyboard.Key.print_screen:
                 self.log_output("🎯 Phát hiện nhấn PrtSc (Fallback Mode)!\n")
-                threading.Thread(target=self.process_screenshot, daemon=True).start()
+                self._queue_screenshot()
         except AttributeError:
             pass
+    
+    def _queue_screenshot(self):
+        """Queue screenshot và reset debounce timer"""
+        with self._batch_lock:
+            # Check max batch size
+            if len(self._screenshot_batch) >= self.MAX_BATCH_SIZE:
+                self.log_output(f"⚠️ Đã đạt tối đa {self.MAX_BATCH_SIZE} ảnh, bỏ qua...\n")
+                return
+            
+            # Capture screenshot ngay
+            try:
+                screenshot = ImageGrab.grab()
+                self._screenshot_batch.append(screenshot)
+                count = len(self._screenshot_batch)
+                self.log_output(f"📸 Đã chụp ảnh #{count}/{self.MAX_BATCH_SIZE} (chờ 5s...)\n")
+            except Exception as e:
+                self.log_output(f"❌ Lỗi chụp ảnh: {e}\n")
+                return
+            
+            # Cancel existing timer
+            if self._batch_timer:
+                self.after_cancel(self._batch_timer)
+            
+            # Start new 5s timer
+            self._batch_timer = self.after(self.BATCH_DELAY_MS, self._process_batch)
+    
+    def _process_batch(self):
+        """Process tất cả ảnh đã queue sau 5s không có chụp thêm"""
+        with self._batch_lock:
+            if not self._screenshot_batch:
+                return
+            
+            # Copy và clear batch
+            screenshots = self._screenshot_batch.copy()
+            self._screenshot_batch.clear()
+            self._batch_timer = None
+        
+        # Process in background thread
+        threading.Thread(
+            target=self._process_screenshots_batch,
+            args=(screenshots,),
+            daemon=True
+        ).start()
             
     def process_screenshot(self):
-        """Xử lý chụp màn hình và phân tích"""
+        """Legacy method - redirect to queue system"""
+        self._queue_screenshot()
+    
+    def _process_screenshots_batch(self, screenshots: list):
+        """Xử lý batch ảnh và gửi đến Gemini"""
         if self.is_processing:
-            self.log_output("⚠️ Đang xử lý ảnh trước đó...\n")
+            self.log_output("⚠️ Đang xử lý batch trước đó...\n")
+            # Re-queue screenshots
+            with self._batch_lock:
+                self._screenshot_batch = screenshots + self._screenshot_batch
             return
             
         self.is_processing = True
+        num_images = len(screenshots)
         
         try:
-            # Chụp màn hình với context manager (auto-close)
-            self.log_output("📸 Đang chụp màn hình...\n")
-            with screenshot_context() as screenshot:
-                # Gửi đến Gemini
-                self.log_output(f"🤖 Đang gửi đến {self.gemini_model}...\n")
-                response = self.model.generate_content([
-                    self.current_prompt,
-                    screenshot
-                ])
-                
-                result = response.text
+            self.log_output(f"\n🚀 Đang gửi {num_images} ảnh đến {self.gemini_model}...\n")
             
-            # Hiển thị kết quả
+            # Build content với prompt và tất cả ảnh
+            content = [self.current_prompt]
+            for i, img in enumerate(screenshots):
+                content.append(img)
+                self.log_output(f"   📷 Ảnh {i+1}/{num_images} đã sẵn sàng\n")
+            
+            # Gửi đến Gemini
+            response = self.model.generate_content(content)
+            result = response.text
+            
+            # Hiển thị kết quả trong log
             timestamp = datetime.now().strftime("%H:%M:%S")
-            self.log_output(f"\n✅ [{timestamp}] Kết quả:\n")
+            self.log_output(f"\n✅ [{timestamp}] Kết quả ({num_images} ảnh):\n")
             self.log_output("-" * 60 + "\n")
             self.log_output(f"{result}\n")
-            self.log_output("-" * 60 + "\n\n")
+            self.log_output("-" * 60 + "\n")
+            self.log_output("💡 Double-click chuột để hiện thông báo kết quả\n\n")
             
             # Lưu vào lịch sử
             self.history.append({
                 "timestamp": datetime.now().isoformat(),
                 "model": self.gemini_model,
                 "prompt": self.current_prompt,
-                "result": result
+                "result": result,
+                "num_images": num_images
             })
             
-            # Hiển thị HUD notification (non-intrusive, auto-dismiss)
+            # Queue pending result - chờ double-click để hiện
             preview = result[:200] + "..." if len(result) > 200 else result
-            self._show_hud_notification(
-                title="✅ Phân tích hoàn tất!",
-                message=f"[{timestamp}] {self.gemini_model}\n\n{preview}",
-                notification_type="success"
-            )
+            self._pending_results.put({
+                'title': f"✅ Phân tích {num_images} ảnh hoàn tất!",
+                'message': f"[{timestamp}] {self.gemini_model}\n\n{preview}",
+                'notification_type': 'success'
+            })
             
         except Exception as e:
             error_msg = f"❌ Lỗi: {str(e)}"
             self.log_output(f"{error_msg}\n")
-            # Hiển thị HUD error notification
+            # Error notification hiện ngay (không cần double-click)
             self._show_hud_notification(
                 title="❌ Lỗi phân tích",
                 message=str(e),
@@ -1215,6 +1294,12 @@ class ScreenCaptureGUI(ctk.CTk):
             )
         finally:
             self.is_processing = False
+            # Close screenshots
+            for img in screenshots:
+                try:
+                    img.close()
+                except:
+                    pass
     
     def _poll_notifications(self):
         """Poll notification queue và hiển thị trong main thread"""
@@ -1231,6 +1316,54 @@ class ScreenCaptureGUI(ctk.CTk):
         finally:
             # Schedule next poll (every 100ms)
             self.after(100, self._poll_notifications)
+    
+    def _poll_double_click(self):
+        """Poll for double-click detection using Windows API"""
+        import time
+        try:
+            # Check if left mouse button is pressed
+            if ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000:
+                current_time = time.time()
+                
+                # Check if this is a new click (debounce 100ms)
+                if current_time - self._last_click_time > 0.1:
+                    self._click_count += 1
+                    
+                    # Check for double-click within threshold
+                    if self._click_count >= 2:
+                        time_since_first = current_time - getattr(self, '_first_click_time', 0)
+                        if time_since_first <= self.DOUBLE_CLICK_THRESHOLD:
+                            # Double-click detected!
+                            self._on_double_click_detected()
+                        # Reset counter
+                        self._click_count = 0
+                        self._first_click_time = current_time
+                    else:
+                        # First click
+                        self._first_click_time = current_time
+                    
+                    self._last_click_time = current_time
+                    
+        except Exception as e:
+            print(f"[DoubleClick] Poll error: {e}")
+        finally:
+            # Poll every 50ms for responsive detection
+            self.after(50, self._poll_double_click)
+    
+    def _on_double_click_detected(self):
+        """Handle double-click - show pending results"""
+        try:
+            # Get pending result if any
+            result = self._pending_results.get_nowait()
+            print(f"[DoubleClick] Showing pending result: {result['title']}")
+            self._show_hud_notification(
+                title=result['title'],
+                message=result['message'],
+                notification_type=result['notification_type']
+            )
+        except queue.Empty:
+            # No pending results
+            pass
     
     def _do_show_notification(self, data):
         """Actually show the notification (runs in main thread)"""
