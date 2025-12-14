@@ -141,7 +141,7 @@ SnapCapAI/
 ├── universal_converter.py   # Multi-format converter
 ├── config.json              # Saved settings & API keys
 ├── requirements.txt         # Python dependencies
-├── SnapCapAI.spec          # PyInstaller spec
+├── SnapCapAI.spec           # PyInstaller spec
 └── temp/                    # Output folders
     ├── audio/
     ├── image/
