@@ -161,19 +161,38 @@ class ScreenCaptureGUI(ctk.CTk):
         self.BATCH_DELAY_MS = 5000  # 5 seconds debounce
         self.MAX_BATCH_SIZE = 10
         
+        # Thread-safe screenshot queue (for timer scheduling from hook thread)
+        self._screenshot_request_queue = queue.Queue()
+        
         # ===== DOUBLE-CLICK TO SHOW RESULT =====
         # Pending results chờ double-click
         self._pending_results = queue.Queue()
         self._last_click_time = 0
+        self._last_right_click_time = 0
         self._click_count = 0
-        self.DOUBLE_CLICK_THRESHOLD = 1.0  # 1 second
+        self._right_click_count = 0
+        self.DOUBLE_CLICK_THRESHOLD = 0.5  # 0.5 second
         self._mouse_hook = None
+        
+        # Track mouse button state (to detect press vs hold)
+        self._left_button_was_pressed = False
+        self._right_button_was_pressed = False
+        
+        # ===== NOTIFICATION HISTORY (TEMP) =====
+        # Lưu thông báo đã hiển thị để có thể xem lại
+        self._notification_history = []  # List of recent notifications
+        self._current_notification = None  # Currently showing notification (HUDNotification instance)
+        self._current_notification_data = None  # Data of current notification
+        self.MAX_NOTIFICATION_HISTORY = 10  # Giữ tối đa 10 thông báo gần nhất
         
         # Tạo giao diện
         self.create_widgets()
         
         # Start notification polling loop
         self._poll_notifications()
+        
+        # Start screenshot request polling (for thread-safe timer)
+        self._poll_screenshot_requests()
         
         # Start double-click detection polling
         self._poll_double_click()
@@ -1019,19 +1038,128 @@ class ScreenCaptureGUI(ctk.CTk):
     def on_prompt_changed(self, choice):
         """Xử lý khi thay đổi prompt template"""
         templates = {
-            "Chỉ trả lời câu hỏi": "Chỉ quan tâm đến các câu hỏi trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác.",
-            "Code Analysis": """Hãy phân tích đoạn code trong ảnh:
-1. Ngôn ngữ lập trình
-2. Chức năng chính của code
-3. Phát hiện lỗi hoặc bug tiềm ẩn
-4. Đề xuất cải tiến code""",
-            "Translate to Vietnamese": "Hãy dịch toàn bộ văn bản trong ảnh sang tiếng Việt. Giữ nguyên định dạng và cấu trúc gốc.",
-            "Math Solver": """Phân tích và giải bài toán trong ảnh:
-1. Xác định loại bài toán
-2. Giải chi tiết từng bước
-3. Kiểm tra lại kết quả
-4. Đưa ra đáp án cuối cùng""",
-            "Text Extraction": "Trích xuất toàn bộ văn bản có trong ảnh. Giữ nguyên định dạng, xuống dòng và cấu trúc."
+            "Chỉ trả lời câu hỏi": """Bạn là trợ lý AI chuyên trả lời câu hỏi trắc nghiệm và tự luận tuân thủ nghiêm ngặt các quy tắc dưới đây.
+
+NHIỆM VỤ:
+- Phân tích KỸ CÀNG ảnh chụp màn hình chứa câu hỏi
+- Chỉ tập trung vào câu hỏi và câu trả lời, KHÔNG CẦN giải thích
+
+QUY TẮC TRẢ LỜI:
+1. Trắc nghiệm: Trả lời đáp án (A/B/C/D) + nội dung của đáp án (KHÔNG GIẢI THÍCH)
+2. Tự luận: Trả lời trực tiếp, ngắn gọn, đúng trọng tâm
+3. Nhiều câu hỏi: Đánh số và trả lời từng câu
+4. Nếu có nhiều ảnh: Phân tích từng ảnh theo thứ tự
+5. Đối với câu hỏi có nhiều sự lựa chọn đúng, hãy liệt kê tất cả các đáp án đúng bằng số thứ tự.
+
+ĐỊNH DẠNG OUTPUT:
+- KHÔNG CẦN lặp lại câu hỏi (IMPORTANT!)
+- Ngắn gọn tối đa, không cần các câu như là "Đây là câu trả lời cho câu hỏi của bạn"
+- Ưu tiên bullet points""",
+            
+            "Code Analysis": """Bạn là Senior Software Engineer với 10+ năm kinh nghiệm.
+
+NHIỆM VỤ: Phân tích code trong ảnh chụp màn hình
+
+OUTPUT FORMAT:
+## 🔍 Ngôn ngữ: [tên ngôn ngữ]
+
+## 📝 Chức năng
+[Mô tả ngắn gọn]
+
+## 🐛 Bugs/Issues
+- [Bug 1]: [Mô tả] → [Fix]
+- [Bug 2]: [Mô tả] → [Fix]
+
+## ⚡ Cải tiến
+- [Đề xuất 1]
+- [Đề xuất 2]
+
+## ✅ Code sửa (nếu có lỗi)
+```
+[code đã fix]
+```
+
+QUY TẮC:
+- Phát hiện lỗi logic, security, performance
+- Đề xuất best practices
+- Nếu nhiều ảnh: So sánh hoặc phân tích từng phần""",
+            
+            "Translate to Vietnamese": """Bạn là dịch giả chuyên nghiệp Anh-Việt.
+
+NHIỆM VỤ: Dịch văn bản trong ảnh sang tiếng Việt
+
+QUY TẮC:
+1. Giữ nguyên định dạng gốc (heading, bullet, số thứ tự)
+2. Thuật ngữ chuyên ngành: giữ tiếng Anh trong ngoặc
+3. Tên riêng: không dịch
+4. Dịch tự nhiên, không dịch máy
+5. Nhiều ảnh: Dịch theo thứ tự ảnh
+
+OUTPUT:
+[Bản dịch tiếng Việt]""",
+            
+            "Math Solver": """Bạn là giáo viên Toán với khả năng giải mọi bài toán.
+
+NHIỆM VỤ: Giải bài toán trong ảnh
+
+QUY TRÌNH:
+1. **Đọc đề**: Xác định dữ kiện và yêu cầu
+2. **Phân loại**: Đại số/Hình học/Giải tích/Xác suất/...
+3. **Giải chi tiết**: Từng bước với công thức
+4. **Kiểm tra**: Thử lại kết quả
+5. **Đáp án**: In đậm kết quả cuối
+
+OUTPUT FORMAT:
+## 📋 Bài toán: [tóm tắt đề]
+## 🔢 Dạng: [loại toán]
+## 📝 Lời giải:
+[Các bước giải]
+## ✅ Đáp án: **[kết quả]**
+
+LƯU Ý:
+- Nhiều bài: Đánh số và giải từng bài
+- Nhiều ảnh: Có thể là các phần của 1 bài, phân tích tổng hợp""",
+            
+            "Text Extraction": """Bạn là công cụ OCR thông minh.
+
+NHIỆM VỤ: Trích xuất văn bản từ ảnh
+
+QUY TẮC:
+1. Giữ nguyên 100% nội dung gốc
+2. Bảo toàn định dạng: xuống dòng, thụt đầu dòng, bullet
+3. Bảng: Dùng | để phân cách cột
+4. Handwriting: Cố gắng nhận diện, đánh dấu [?] nếu không rõ
+5. Nhiều ảnh: Tách biệt nội dung từng ảnh
+
+OUTPUT:
+---
+[Nội dung ảnh 1]
+---
+[Nội dung ảnh 2]
+---
+
+Không thêm bớt bất kỳ nội dung nào.""",
+            
+            "General Analysis": """Bạn là AI đa năng phân tích ảnh chụp màn hình.
+
+NHIỆM VỤ: Phân tích thông minh dựa trên nội dung ảnh
+
+TỰ ĐỘNG PHÁT HIỆN:
+- Câu hỏi → Trả lời ngắn gọn
+- Code → Phân tích và sửa lỗi
+- Văn bản → Tóm tắt hoặc trích xuất
+- Biểu đồ/Đồ thị → Giải thích ý nghĩa
+- Bài toán → Giải chi tiết
+- UI/UX → Đánh giá và góp ý
+
+OUTPUT:
+## 🎯 Loại nội dung: [type]
+## 📊 Phân tích:
+[Nội dung phân tích phù hợp]
+
+LƯU Ý cho nhiều ảnh:
+- Phân tích từng ảnh hoặc tổng hợp nếu liên quan
+- Đánh số ảnh nếu cần"""
         }
         
         if choice != "Custom":
@@ -1058,9 +1186,30 @@ class ScreenCaptureGUI(ctk.CTk):
             pass
             
     def load_default_prompt(self):
-        """Load prompt mặc định"""
-        default_prompt = "Chỉ quan tâm đến các câu hỏi trong ảnh, trả lời trọng tâm đáp án, ngắn gọn, không cần phân tích hay bất kỳ điều gì khác."
-        self.prompt_text.insert("1.0", default_prompt)
+        """Load prompt từ config hoặc dùng mặc định"""
+        # Kiểm tra nếu có prompt đã lưu trong config
+        if hasattr(self, 'current_prompt') and self.current_prompt:
+            self.prompt_text.insert("1.0", self.current_prompt)
+        else:
+            # Default prompt nếu chưa có
+            default_prompt = """Bạn là trợ lý AI chuyên trả lời câu hỏi trắc nghiệm và tự luận tuân thủ nghiêm ngặt các quy tắc dưới đây.
+
+NHIỆM VỤ:
+- Phân tích KỸ CÀNG ảnh chụp màn hình chứa câu hỏi
+- Chỉ tập trung vào câu hỏi và câu trả lời, KHÔNG CẦN giải thích
+
+QUY TẮC TRẢ LỜI:
+1. Trắc nghiệm: Trả lời đáp án (A/B/C/D) + nội dung của đáp án (KHÔNG GIẢI THÍCH)
+2. Tự luận: Trả lời trực tiếp, ngắn gọn, đúng trọng tâm
+3. Nhiều câu hỏi: Đánh số và trả lời từng câu
+4. Nếu có nhiều ảnh: Phân tích từng ảnh theo thứ tự
+5. Đối với câu hỏi có nhiều sự lựa chọn đúng, hãy liệt kê tất cả các đáp án đúng bằng số thứ tự.
+
+ĐỊNH DẠNG OUTPUT:
+- KHÔNG CẦN lặp lại câu hỏi (IMPORTANT!)
+- Ngắn gọn tối đa, không cần các câu như là "Đây là câu trả lời cho câu hỏi của bạn"
+- Ưu tiên bullet points"""
+            self.prompt_text.insert("1.0", default_prompt)
         
     def toggle_listening(self):
         """Bật/tắt chế độ lắng nghe"""
@@ -1174,20 +1323,36 @@ class ScreenCaptureGUI(ctk.CTk):
         
     def on_prtsc_pressed(self):
         """Callback khi PrtSc được nhấn (từ keyboard hook)"""
-        self.log_output("🎯 Phát hiện nhấn PrtSc (Stealth Mode)!\n")
-        self._queue_screenshot()
+        # Put request to queue - main thread will handle timer
+        self._screenshot_request_queue.put("capture")
     
     def _on_key_press_fallback(self, key):
         """Fallback key handler khi không có admin (pynput)"""
         try:
             if key == pynput_keyboard.Key.print_screen:
-                self.log_output("🎯 Phát hiện nhấn PrtSc (Fallback Mode)!\n")
-                self._queue_screenshot()
+                # Put request to queue - main thread will handle timer
+                self._screenshot_request_queue.put("capture")
         except AttributeError:
             pass
     
-    def _queue_screenshot(self):
-        """Queue screenshot và reset debounce timer"""
+    def _poll_screenshot_requests(self):
+        """Poll screenshot request queue và xử lý trong main thread"""
+        try:
+            while True:
+                try:
+                    request = self._screenshot_request_queue.get_nowait()
+                    if request == "capture":
+                        self._do_capture_screenshot()
+                except queue.Empty:
+                    break
+        except Exception as e:
+            print(f"[Screenshot Poll] Error: {e}")
+        finally:
+            # Schedule next poll (50ms)
+            self.after(50, self._poll_screenshot_requests)
+    
+    def _do_capture_screenshot(self):
+        """Actually capture screenshot and manage timer (runs in main thread)"""
         with self._batch_lock:
             # Check max batch size
             if len(self._screenshot_batch) >= self.MAX_BATCH_SIZE:
@@ -1199,6 +1364,7 @@ class ScreenCaptureGUI(ctk.CTk):
                 screenshot = ImageGrab.grab()
                 self._screenshot_batch.append(screenshot)
                 count = len(self._screenshot_batch)
+                self.log_output(f"🎯 PrtSc detected!\n")
                 self.log_output(f"📸 Đã chụp ảnh #{count}/{self.MAX_BATCH_SIZE} (chờ 5s...)\n")
             except Exception as e:
                 self.log_output(f"❌ Lỗi chụp ảnh: {e}\n")
@@ -1207,9 +1373,15 @@ class ScreenCaptureGUI(ctk.CTk):
             # Cancel existing timer
             if self._batch_timer:
                 self.after_cancel(self._batch_timer)
+                self._batch_timer = None
             
-            # Start new 5s timer
+            # Start new 5s timer (now in main thread - this will work!)
             self._batch_timer = self.after(self.BATCH_DELAY_MS, self._process_batch)
+            self.log_output(f"⏱️ Timer reset - gửi sau 5s nếu không chụp thêm\n")
+    
+    def _queue_screenshot(self):
+        """Queue screenshot request (thread-safe)"""
+        self._screenshot_request_queue.put("capture")
     
     def _process_batch(self):
         """Process tất cả ảnh đã queue sau 5s không có chụp thêm"""
@@ -1318,72 +1490,194 @@ class ScreenCaptureGUI(ctk.CTk):
             self.after(100, self._poll_notifications)
     
     def _poll_double_click(self):
-        """Poll for double-click detection using Windows API"""
+        """Poll for double-click detection using Windows API (left and right mouse)"""
         import time
         try:
-            # Check if left mouse button is pressed
-            if ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000:
-                current_time = time.time()
+            current_time = time.time()
+            
+            # ===== LEFT MOUSE BUTTON (0x01) =====
+            # Detect click on RELEASE (not hold)
+            left_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000)
+            
+            # Only count click when button is RELEASED after being pressed
+            if self._left_button_was_pressed and not left_pressed:
+                # Button just released = one click
+                self._click_count += 1
                 
-                # Check if this is a new click (debounce 100ms)
-                if current_time - self._last_click_time > 0.1:
-                    self._click_count += 1
-                    
-                    # Check for double-click within threshold
-                    if self._click_count >= 2:
-                        time_since_first = current_time - getattr(self, '_first_click_time', 0)
-                        if time_since_first <= self.DOUBLE_CLICK_THRESHOLD:
-                            # Double-click detected!
-                            self._on_double_click_detected()
-                        # Reset counter
-                        self._click_count = 0
-                        self._first_click_time = current_time
-                    else:
-                        # First click
-                        self._first_click_time = current_time
-                    
-                    self._last_click_time = current_time
+                if self._click_count == 1:
+                    # First click - record time
+                    self._first_click_time = current_time
+                elif self._click_count >= 2:
+                    # Check if second click is within threshold
+                    time_since_first = current_time - getattr(self, '_first_click_time', 0)
+                    if time_since_first <= self.DOUBLE_CLICK_THRESHOLD:
+                        # Double-click LEFT detected!
+                        self._on_double_click_left_detected()
+                    # Reset counter
+                    self._click_count = 0
+            
+            # Reset click count if too much time passed since first click
+            if self._click_count == 1:
+                time_since_first = current_time - getattr(self, '_first_click_time', 0)
+                if time_since_first > self.DOUBLE_CLICK_THRESHOLD:
+                    self._click_count = 0
+            
+            self._left_button_was_pressed = left_pressed
+            
+            # ===== RIGHT MOUSE BUTTON (0x02) =====
+            # Detect click on RELEASE (not hold)
+            right_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x02) & 0x8000)
+            
+            # Only count click when button is RELEASED after being pressed
+            if self._right_button_was_pressed and not right_pressed:
+                # Button just released = one click
+                self._right_click_count += 1
+                
+                if self._right_click_count == 1:
+                    # First click - record time
+                    self._first_right_click_time = current_time
+                elif self._right_click_count >= 2:
+                    # Check if second click is within threshold
+                    time_since_first = current_time - getattr(self, '_first_right_click_time', 0)
+                    if time_since_first <= self.DOUBLE_CLICK_THRESHOLD:
+                        # Double-click RIGHT detected!
+                        self._on_double_click_right_detected()
+                    # Reset counter
+                    self._right_click_count = 0
+            
+            # Reset click count if too much time passed since first click
+            if self._right_click_count == 1:
+                time_since_first = current_time - getattr(self, '_first_right_click_time', 0)
+                if time_since_first > self.DOUBLE_CLICK_THRESHOLD:
+                    self._right_click_count = 0
+            
+            self._right_button_was_pressed = right_pressed
                     
         except Exception as e:
             print(f"[DoubleClick] Poll error: {e}")
         finally:
-            # Poll every 50ms for responsive detection
-            self.after(50, self._poll_double_click)
+            # Poll every 30ms for responsive detection
+            self.after(30, self._poll_double_click)
     
-    def _on_double_click_detected(self):
-        """Handle double-click - show pending results"""
+    def _on_double_click_left_detected(self):
+        """Handle double-click LEFT - show pending results or last notification from history"""
+        print(f"[DoubleClick LEFT] Detected!")
+        
+        # Priority 1: Check pending results first
         try:
-            # Get pending result if any
             result = self._pending_results.get_nowait()
-            print(f"[DoubleClick] Showing pending result: {result['title']}")
+            print(f"[DoubleClick LEFT] Showing pending result: {result['title']}")
             self._show_hud_notification(
                 title=result['title'],
                 message=result['message'],
                 notification_type=result['notification_type']
             )
+            return
         except queue.Empty:
-            # No pending results
             pass
+        
+        # Priority 2: Show last notification from history
+        if self._notification_history:
+            last_notif = self._notification_history[-1]
+            print(f"[DoubleClick LEFT] Showing last notification from history: {last_notif['title']}")
+            self._show_hud_notification(
+                title=last_notif['title'],
+                message=last_notif['message'],
+                notification_type=last_notif['notification_type']
+            )
+        else:
+            print(f"[DoubleClick LEFT] No notification in history")
+    
+    def _on_double_click_right_detected(self):
+        """Handle double-click RIGHT - hide current notification IMMEDIATELY and save to temp"""
+        print(f"[DoubleClick RIGHT] Detected!")
+        
+        # Hide current notification if showing
+        if self._current_notification:
+            try:
+                # Save current notification data to history before closing
+                if self._current_notification_data:
+                    self._add_to_notification_history(self._current_notification_data)
+                    print(f"[DoubleClick RIGHT] Saved notification to history")
+                
+                # Close the notification IMMEDIATELY (destroy, not fade)
+                try:
+                    self._current_notification.destroy()
+                except:
+                    pass
+                self._current_notification = None
+                self._current_notification_data = None
+                print(f"[DoubleClick RIGHT] Notification hidden immediately")
+            except Exception as e:
+                print(f"[DoubleClick RIGHT] Error hiding notification: {e}")
+        else:
+            print(f"[DoubleClick RIGHT] No notification currently showing")
+    
+    def _add_to_notification_history(self, data):
+        """Add notification to history (FIFO, max 10)"""
+        self._notification_history.append({
+            'title': data.get('title', ''),
+            'message': data.get('message', ''),
+            'notification_type': data.get('notification_type', 'info'),
+            'timestamp': datetime.now().isoformat()
+        })
+        # Keep only last N notifications
+        if len(self._notification_history) > self.MAX_NOTIFICATION_HISTORY:
+            self._notification_history.pop(0)
     
     def _do_show_notification(self, data):
         """Actually show the notification (runs in main thread)"""
         try:
             print(f"[HUD] Creating notification: {data['title']}")
-            # Use self as parent - HUD uses WS_EX_NOACTIVATE so won't affect main window
+            
+            # Close ALL existing notifications immediately to avoid overlap
+            if self._current_notification:
+                try:
+                    # Save to history before closing (only if different data)
+                    if self._current_notification_data and self._current_notification_data != data:
+                        self._add_to_notification_history(self._current_notification_data)
+                    # Destroy immediately (no fade)
+                    self._current_notification.destroy()
+                except:
+                    pass
+                finally:
+                    self._current_notification = None
+                    self._current_notification_data = None
+            
             # Get user's preferred color theme and duration
             theme = getattr(self, 'notification_theme', 'white')
             duration = getattr(self, 'notification_duration', 3) * 1000  # Convert to ms
+            
+            # Create notification with increased width (600px)
             notif = HUDNotification(
                 parent=self,
                 title=data['title'],
                 message=data['message'],
                 notification_type=data['notification_type'],
                 duration_ms=duration,       # User's preferred duration
+                width=600,                  # Wider notification box
                 position="bottom-right",    # Bottom-right corner
                 click_through=True,         # Mouse clicks pass through
                 fade_in=False,              # Instant appear
                 color_theme=theme           # User's preferred theme
             )
+            
+            # Track current notification
+            self._current_notification = notif
+            self._current_notification_data = data
+            
+            # Schedule auto-save to history when notification closes
+            def on_notification_closed():
+                # Only save if this is still the current notification
+                if self._current_notification == notif and self._current_notification_data:
+                    self._add_to_notification_history(self._current_notification_data)
+                    print(f"[HUD] Notification saved to history on close")
+                    self._current_notification = None
+                    self._current_notification_data = None
+            
+            # Schedule check after duration + buffer
+            self.after(duration + 500, on_notification_closed)
+            
             print(f"[HUD] Notification displayed: {notif}")
         except Exception as e:
             print(f"[HUD] Error creating notification: {e}")

@@ -6,7 +6,7 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 
 ---
 
-## ⚠️ Lưu ý quan trọng (13/12/2025)
+## ⚠️ Lưu ý quan trọng (14/12/2025)
 
 > **Google Free Tier hiện chỉ hỗ trợ `gemini-2.5-flash`**
 > 
@@ -14,7 +14,14 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 > - Tài khoản trả phí (billing enabled)
 > - Hoặc đã hết quota free tier
 >
-> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) cho free tier.
+> **⏱️ Giới hạn Free Tier (gemini-2.5-flash):**
+> | Loại | Giới hạn |
+> |------|----------|
+> | RPM (Request/phút) | **5 requests** |
+> | TPM (Token/phút) | **250,000 tokens** |
+> | RPD (Request/ngày) | **25 requests** |
+>
+> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) và hạn chế spam PrtSc.
 
 ---
 
@@ -25,25 +32,40 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 - Nuốt phím PrtSc - Browser/Game không biết bạn đã chụp
 - Yêu cầu quyền Administrator
 
-### 🎯 HUD Overlay
+### 🎯 HUD Overlay Notification
 - Thông báo TopMost không chiếm focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
 - Click-through - Không ảnh hưởng thao tác
 - 2 theme: ⬜ White (dim text) / ⬛ Dark
 - Tùy chỉnh duration: 1-10 giây
+- **Width notification 600px** - Hiển thị rõ ràng hơn
 
 ### 📸 Batch Capture
 - Chụp nhiều ảnh liên tiếp (tối đa 10 ảnh)
 - Debounce 5 giây - Reset timer mỗi lần chụp
 - Tự động gộp và gửi tất cả ảnh sau 5s không hoạt động
+- **Smart Context** - AI phân tích liên kết giữa các ảnh
 
-### 🖱️ Double-Click Reveal
-- Kết quả AI chỉ hiện khi double-click chuột trong 1 giây
+### 🖱️ Double-Click Controls (0.5s threshold)
+| Thao tác | Chức năng |
+|----------|-----------|
+| **Double-click LEFT** | Hiện notification cuối cùng từ history |
+| **Double-click RIGHT** | Ẩn notification ngay lập tức |
+
+- Phát hiện trên **button release** (không phải press) - Tránh nhầm với hold
+- **Notification History** - Lưu tối đa 10 kết quả gần nhất
 - Bảo mật - Người khác không thấy kết quả ngay lập tức
 
 ### 🤖 AI Analysis
 - Google Gemini API (2.5-flash mặc định)
-- Prompt templates có sẵn hoặc tự tạo
-- Hot-switch model khi đang chạy
+- **6 Prompt Templates** tối ưu:
+  - 📝 General Analysis
+  - 🔍 Code Review  
+  - ✅ Answer Questions
+  - 📄 Text Extraction (OCR)
+  - 🔐 Explain Technical
+  - 🌐 Translate (Việt ↔ English)
+- Prompt tùy chỉnh hoặc dùng template
+- **Hot-switch model** khi đang chạy (không cần restart)
 
 ### 🎤 Audio Transcription (Tùy chọn)
 - Azure Speech-to-Text
@@ -97,7 +119,14 @@ python gui_app.py
 3. Click **"▶ ENGAGE STEALTH MODE"**
 4. Nhấn **PrtSc** để chụp ảnh
 5. Chờ 5s hoặc chụp thêm (tối đa 10 ảnh)
-6. **Double-click chuột** để hiện kết quả
+6. AI tự động phân tích và hiện kết quả
+
+### 🖱️ Điều khiển Notification
+| Thao tác | Chức năng |
+|----------|-----------|
+| **Double-click LEFT** (0.5s) | Hiện lại notification cuối cùng |
+| **Double-click RIGHT** (0.5s) | Ẩn notification ngay lập tức |
+| Tự động | Notification tự ẩn sau duration đã set |
 
 ### Chế độ hoạt động
 | Trạng thái | Màu | Mô tả |
@@ -108,6 +137,7 @@ python gui_app.py
 ### Tùy chỉnh Notification
 - **Theme:** ⬜ White / ⬛ Dark (dim text cho stealth)
 - **Duration:** 1s - 10s
+- **Width:** 600px (hiển thị rõ ràng)
 
 ---
 
@@ -157,14 +187,27 @@ SnapCapAI/
 | Vấn đề | Nguyên nhân | Giải pháp |
 |--------|-------------|-----------|
 | PrtSc không detect | Không có quyền Admin | Right-click → Run as Administrator |
-| "429 Quota exceeded" | Hết quota free tier hoặc model không hỗ trợ | Đổi sang `gemini-2.5-flash` |
+| "429 Quota exceeded" | Hết quota free tier | Chờ reset (1 phút cho RPM, 24h cho RPD) |
+| "429 Rate limit" | Gửi quá 5 request/phút | Chờ 1 phút rồi thử lại |
 | HUD chiếm focus | Bug Windows cũ | Restart app, kiểm tra Windows 10/11 |
 | API Error | Key sai hoặc hết hạn | Kiểm tra lại API key |
 | Model không đổi | Bug cũ (đã fix) | Cập nhật code mới nhất |
+| Double-click không nhận | Giữ nút quá lâu | Click nhanh 2 lần trong 0.5s |
+| Notification bị chồng | Bug cũ (đã fix) | Cập nhật code mới nhất |
 
 ---
 
 ## 🔄 Changelog
+
+### v1.3.0 (14/12/2025)
+- ✅ **Notification History** - Lưu 10 kết quả gần nhất
+- ✅ **Double-click LEFT** (0.5s) - Hiện lại notification cuối
+- ✅ **Double-click RIGHT** (0.5s) - Ẩn notification ngay
+- ✅ **Smart button release detection** - Tránh nhầm hold với double-click
+- ✅ **Notification overlap fix** - Không còn chồng lên nhau
+- ✅ **Wider notification** - 600px width cho dễ đọc
+- ✅ **6 Optimized prompts** - Template chi tiết hơn
+- ✅ **Thread-safe batch timer** - Fix bug 5s debounce
 
 ### v1.2.0 (13/12/2025)
 - ✅ Hot-switch model khi đang chạy
