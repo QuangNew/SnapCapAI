@@ -51,6 +51,7 @@ Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián �
 | **Double-click LEFT** | Hiện notification cuối cùng từ history |
 | **Double-click RIGHT** | Ẩn notification ngay lập tức |
 
+- **Chỉ hoạt động khi Stealth Mode BẬT** - Tắt khi dừng capture
 - Phát hiện trên **button release** (không phải press) - Tránh nhầm với hold
 - **Notification History** - Lưu tối đa 10 kết quả gần nhất
 - Bảo mật - Người khác không thấy kết quả ngay lập tức
@@ -198,6 +199,12 @@ SnapCapAI/
 ---
 
 ## 🔄 Changelog
+
+### v1.4.0 (15/12/2025)
+- ✅ **Double-click chỉ hoạt động khi capture BẬT** - Tắt khi dừng capture
+- ✅ **Memory leak fix** - Clear batch screenshots và pending results khi stop
+- ✅ **Tối ưu import** - Move `time` import ra top-level (tránh import lặp mỗi 30ms)
+- ✅ **Giữ temp files** - Không xóa files trong temp khi đóng app
 
 ### v1.3.0 (14/12/2025)
 - ✅ **Notification History** - Lưu 10 kết quả gần nhất

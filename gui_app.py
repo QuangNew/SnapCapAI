@@ -12,6 +12,7 @@ import threading
 import sys
 import ctypes
 import queue
+import time
 import tkinter as tk
 import customtkinter as ctk
 from datetime import datetime
@@ -1307,6 +1308,27 @@ QUY TẮC TRẢ LỜI:
             self.pynput_listener = None
         
         self.stealth_mode = False
+        
+        # Cancel pending batch timer
+        if self._batch_timer:
+            self.after_cancel(self._batch_timer)
+            self._batch_timer = None
+        
+        # Clear batch screenshots (close images to free memory)
+        with self._batch_lock:
+            for img in self._screenshot_batch:
+                try:
+                    img.close()
+                except:
+                    pass
+            self._screenshot_batch.clear()
+        
+        # Clear pending results queue (prevent memory buildup)
+        while not self._pending_results.empty():
+            try:
+                self._pending_results.get_nowait()
+            except:
+                break
             
         # Cập nhật UI (HUD Style)
         self.start_button.configure(
@@ -1490,9 +1512,21 @@ QUY TẮC TRẢ LỜI:
             self.after(100, self._poll_notifications)
     
     def _poll_double_click(self):
-        """Poll for double-click detection using Windows API (left and right mouse)"""
-        import time
+        """Poll for double-click detection using Windows API (left and right mouse)
+        
+        Only active when stealth mode is running (is_running = True).
+        Stops detecting when user disables screen capture.
+        """
         try:
+            # Skip detection if not running
+            if not self.is_running:
+                # Reset state when stopped
+                self._click_count = 0
+                self._right_click_count = 0
+                self._left_button_was_pressed = False
+                self._right_button_was_pressed = False
+                return  # Will reschedule in finally block
+            
             current_time = time.time()
             
             # ===== LEFT MOUSE BUTTON (0x01) =====
@@ -1815,24 +1849,28 @@ QUY TẮC TRẢ LỜI:
             if self.is_recording and hasattr(self, 'audio_handler'):
                 self.audio_handler.stop_recording()
             
-            # Xóa toàn bộ file trong folder temp
-            self.cleanup_temp_folder()
-            
             self.quit_app()
     
     def cleanup_temp_folder(self):
-        """Xóa tất cả file trong folder temp"""
+        """Xóa tất cả file trong folder temp (bao gồm cả subdirectories)"""
         try:
             if os.path.exists(self.temp_folder):
-                # Xóa tất cả file trong folder
-                for filename in os.listdir(self.temp_folder):
-                    file_path = os.path.join(self.temp_folder, filename)
+                # Duyệt qua tất cả items (files và folders)
+                for item_name in os.listdir(self.temp_folder):
+                    item_path = os.path.join(self.temp_folder, item_name)
                     try:
-                        if os.path.isfile(file_path):
-                            os.unlink(file_path)
-                            print(f"🗑️ Đã xóa: {filename}")
+                        if os.path.isfile(item_path):
+                            os.unlink(item_path)
+                            print(f"🗑️ Đã xóa file: {item_name}")
+                        elif os.path.isdir(item_path):
+                            # Xóa tất cả file trong subfolder nhưng giữ folder
+                            for filename in os.listdir(item_path):
+                                file_path = os.path.join(item_path, filename)
+                                if os.path.isfile(file_path):
+                                    os.unlink(file_path)
+                                    print(f"🗑️ Đã xóa: {item_name}/{filename}")
                     except Exception as e:
-                        print(f"❌ Lỗi xóa {filename}: {e}")
+                        print(f"❌ Lỗi xóa {item_name}: {e}")
                 print(f"✅ Đã dọn dẹp folder temp")
         except Exception as e:
             print(f"❌ Lỗi cleanup temp folder: {e}")
@@ -1848,7 +1886,7 @@ QUY TẮC TRẢ LỜI:
                     self.azure_api_key = config.get('azure_api_key', '')
                     self.azure_region = config.get('azure_region', 'southeastasia')
                     self.cloudconvert_api_key = config.get('cloudconvert_api_key', '')
-                    self.gemini_model = config.get('gemini_model', 'gemini-2.0-flash')
+                    self.gemini_model = config.get('gemini_model', 'gemini-2.5-flash')
                     self.current_prompt = config.get('prompt', '')
                     self.window_width = config.get('window_width', 1280)
                     self.window_height = config.get('window_height', 800)
