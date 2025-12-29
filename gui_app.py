@@ -416,7 +416,7 @@ class ScreenCaptureGUI(ctk.CTk):
         
         self.model_selector = ctk.CTkComboBox(
             all_apis_frame,
-            values=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-3-pro"],
+            values=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-3-pro", "gemini-3-flash", "gemini-3.5-flash"],
             command=self.on_model_changed,
             height=26,
             font=ctk.CTkFont(size=11),
