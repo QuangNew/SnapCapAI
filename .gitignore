@@ -175,3 +175,6 @@ htmlcov/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+.github/
+.shared/ui-ux-pro-max/
