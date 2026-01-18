@@ -2,26 +2,27 @@
 
 **AI-Powered Screen Capture with Stealth Mode**
 
+![SnapCapAI Interface](./snapcapai-ui.jpg)
+
 Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián đoạn ứng dụng đang chạy (browser, game, video).
 
 ---
 
-## ⚠️ Lưu ý quan trọng (14/12/2025)
+## ⚠️ Lưu ý quan trọng (18/01/2026)
 
-> **Google Free Tier hiện chỉ hỗ trợ `gemini-2.5-flash`**
+> **Cập nhật API Migration (v2.1.0)**
 > 
-> Các model khác (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) yêu cầu:
-> - Tài khoản trả phí (billing enabled)
-> - Hoặc đã hết quota free tier
+> - ✅ Migrated từ `google.generativeai` (deprecated) sang `google-genai` (v1.59.0)
+> - ✅ Loại bỏ FutureWarning cảnh báo deprecation
+> - ✅ UI Redesign: Cyber Liquid Glass theme với GitHub-inspired colors
+> - ✅ Tối ưu contrast và layout (1100x700 window)
 >
-> **⏱️ Giới hạn Free Tier (gemini-2.5-flash):**
+> **Google Free Tier - `gemini-2.5-flash`:**
 > | Loại | Giới hạn |
 > |------|----------|
 > | RPM (Request/phút) | **5 requests** |
 > | TPM (Token/phút) | **250,000 tokens** |
 > | RPD (Request/ngày) | **25 requests** |
->
-> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) và hạn chế spam PrtSc.
 
 ---
 
@@ -192,13 +193,20 @@ SnapCapAI/
 | "429 Rate limit" | Gửi quá 5 request/phút | Chờ 1 phút rồi thử lại |
 | HUD chiếm focus | Bug Windows cũ | Restart app, kiểm tra Windows 10/11 |
 | API Error | Key sai hoặc hết hạn | Kiểm tra lại API key |
-| Model không đổi | Bug cũ (đã fix) | Cập nhật code mới nhất |
+| FutureWarning (deprecated API) | Phiên bản cũ | Cập nhật `google-genai` v1.59.0+ |
 | Double-click không nhận | Giữ nút quá lâu | Click nhanh 2 lần trong 0.5s |
 | Notification bị chồng | Bug cũ (đã fix) | Cập nhật code mới nhất |
 
 ---
 
 ## 🔄 Changelog
+
+### v2.1.0 (18/01/2026)
+- ✅ **API Migration** - Migrated từ `google.generativeai` sang `google-genai` v1.59.0
+- ✅ **Loại bỏ FutureWarning** - Cảnh báo deprecation không còn
+- ✅ **UI Redesign** - Cyber Liquid Glass theme với GitHub-inspired colors
+- ✅ **Improved UI/UX** - Better contrast, optimized window size (1100x700)
+- ✅ **Color Scheme** - Bright text (#f0f6fc), readable secondary (#b1bac4), GitHub blues/greens
 
 ### v1.4.0 (15/12/2025)
 - ✅ **Double-click chỉ hoạt động khi capture BẬT** - Tắt khi dừng capture
@@ -241,4 +249,4 @@ MIT License - Free to use and modify.
 
 ## 👨‍💻 Tác giả
 
-**Built with ❤️ by QuangNew | December 2025**
+**Built with ❤️ by QuangNew | January 2026**
