@@ -17,7 +17,7 @@ import tkinter as tk
 import customtkinter as ctk
 from datetime import datetime
 from PIL import ImageGrab, Image, ImageTk
-import google.generativeai as genai
+from google import generativeai as genai
 from tkinter import scrolledtext, messagebox, filedialog, simpledialog
 import pystray
 from pystray import MenuItem as item
@@ -848,7 +848,9 @@ class ScreenCaptureGUI(ctk.CTk):
         
         if self.is_running and self.api_key:
             try:
-                self.model = genai.GenerativeModel(self.gemini_model)
+                genai.configure(api_key=self.api_key)
+                self.gemini_client = genai.GenerativeModel(choice)
+                self.model_name = choice
                 self.log_output(f"Model switched to: {choice}\n")
             except Exception as e:
                 self.log_output(f"Error switching model: {e}\n")
@@ -963,7 +965,8 @@ Be concise and actionable."""
         
         try:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(self.gemini_model)
+            self.gemini_client = genai.GenerativeModel(self.gemini_model)
+            self.model_name = self.gemini_model
             self.log_output(f"Connected to {self.gemini_model}\n")
         except Exception as e:
             messagebox.showerror("Error", f"Gemini API error:\n{str(e)}")
@@ -1131,14 +1134,14 @@ Be concise and actionable."""
         num_images = len(screenshots)
         
         try:
-            self.log_output(f"\nSending {num_images} image(s) to {self.gemini_model}...\n")
+            self.log_output(f"\nSending {num_images} image(s) to {self.model_name}...\n")
             
             content = [self.current_prompt]
             for i, img in enumerate(screenshots):
                 content.append(img)
                 self.log_output(f"  Image {i+1}/{num_images} ready\n")
             
-            response = self.model.generate_content(content)
+            response = self.gemini_client.generate_content(content)
             result = response.text
             
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1149,7 +1152,7 @@ Be concise and actionable."""
             
             self.history.append({
                 "timestamp": datetime.now().isoformat(),
-                "model": self.gemini_model,
+                "model": self.model_name,
                 "prompt": self.current_prompt,
                 "result": result,
                 "num_images": num_images
@@ -1158,7 +1161,7 @@ Be concise and actionable."""
             preview = result[:200] + "..." if len(result) > 200 else result
             self._pending_results.put({
                 'title': f"Analysis Complete ({num_images} images)",
-                'message': f"[{timestamp}] {self.gemini_model}\n\n{preview}",
+                'message': f"[{timestamp}] {self.model_name}\n\n{preview}",
                 'notification_type': 'success'
             })
             
