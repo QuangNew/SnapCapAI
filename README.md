@@ -2,91 +2,91 @@
 
 **AI-Powered Screen Capture with Stealth Mode**
 
-Chụp màn hình bằng PrtSc và phân tích bằng AI mà không làm gián đoạn ứng dụng đang chạy (browser, game, video).
+Capture screenshots using PrtSc and analyze them with AI without interrupting running applications (browser, games, videos).
 
 ---
 
-## ⚠️ Lưu ý quan trọng (14/12/2025)
+## ⚠️ Important Notice (12/14/2025)
 
-> **Google Free Tier hiện chỉ hỗ trợ `gemini-2.5-flash`**
+> **Google Free Tier currently only supports `gemini-2.5-flash`**
 > 
-> Các model khác (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) yêu cầu:
-> - Tài khoản trả phí (billing enabled)
-> - Hoặc đã hết quota free tier
+> Other models (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) require:
+> - Paid account (billing enabled)
+> - Or free tier quota exhausted
 >
-> **⏱️ Giới hạn Free Tier (gemini-2.5-flash):**
-> | Loại | Giới hạn |
-> |------|----------|
-> | RPM (Request/phút) | **5 requests** |
-> | TPM (Token/phút) | **250,000 tokens** |
-> | RPD (Request/ngày) | **25 requests** |
+> **⏱️ Free Tier Limits (gemini-2.5-flash):**
+> | Type | Limit |
+> |------|-------|
+> | RPM (Requests/minute) | **5 requests** |
+> | TPM (Tokens/minute) | **250,000 tokens** |
+> | RPD (Requests/day) | **25 requests** |
 >
-> **Khuyến nghị:** Sử dụng `gemini-2.5-flash` (mặc định) và hạn chế spam PrtSc.
+> **Recommendation:** Use `gemini-2.5-flash` (default) and avoid spamming PrtSc.
 
 ---
 
-## ✨ Tính năng
+## ✨ Features
 
 ### 🕵️ Stealth Mode
-- Hook keyboard cấp thấp (WH_KEYBOARD_LL)
-- Nuốt phím PrtSc - Browser/Game không biết bạn đã chụp
-- Yêu cầu quyền Administrator
+- Low-level keyboard hook (WH_KEYBOARD_LL)
+- Swallows PrtSc key - Browser/Game won't detect captures
+- Requires Administrator privileges
 
 ### 🎯 HUD Overlay Notification
-- Thông báo TopMost không chiếm focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
-- Click-through - Không ảnh hưởng thao tác
-- 2 theme: ⬜ White (dim text) / ⬛ Dark
-- Tùy chỉnh duration: 1-10 giây
-- **Width notification 600px** - Hiển thị rõ ràng hơn
+- TopMost notification without stealing focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
+- Click-through - Doesn't interfere with interactions
+- 2 themes: ⬜ White (dim text) / ⬛ Dark
+- Customizable duration: 1-10 seconds
+- **600px width notification** - Clearer display
 
 ### 📸 Batch Capture
-- Chụp nhiều ảnh liên tiếp (tối đa 10 ảnh)
-- Debounce 5 giây - Reset timer mỗi lần chụp
-- Tự động gộp và gửi tất cả ảnh sau 5s không hoạt động
-- **Smart Context** - AI phân tích liên kết giữa các ảnh
+- Capture multiple screenshots in succession (max 10 images)
+- 5-second debounce - Resets timer with each capture
+- Auto-combines and sends all images after 5s of inactivity
+- **Smart Context** - AI analyzes connections between images
 
 ### 🖱️ Double-Click Controls (0.5s threshold)
-| Thao tác | Chức năng |
-|----------|-----------|
-| **Double-click LEFT** | Hiện notification cuối cùng từ history |
-| **Double-click RIGHT** | Ẩn notification ngay lập tức |
+| Action | Function |
+|--------|----------|
+| **Double-click LEFT** | Show last notification from history |
+| **Double-click RIGHT** | Hide notification immediately |
 
-- **Chỉ hoạt động khi Stealth Mode BẬT** - Tắt khi dừng capture
-- Phát hiện trên **button release** (không phải press) - Tránh nhầm với hold
-- **Notification History** - Lưu tối đa 10 kết quả gần nhất
-- Bảo mật - Người khác không thấy kết quả ngay lập tức
+- **Only active when Stealth Mode is ON** - Disabled when capture stops
+- Detects on **button release** (not press) - Avoids confusion with hold
+- **Notification History** - Stores up to 10 recent results
+- Secure - Others can't see results immediately
 
 ### 🤖 AI Analysis
-- Google Gemini API (2.5-flash mặc định)
-- **6 Prompt Templates** tối ưu:
+- Google Gemini API (2.5-flash default)
+- **6 Optimized Prompt Templates**:
   - 📝 General Analysis
   - 🔍 Code Review  
   - ✅ Answer Questions
   - 📄 Text Extraction (OCR)
   - 🔐 Explain Technical
-  - 🌐 Translate (Việt ↔ English)
-- Prompt tùy chỉnh hoặc dùng template
-- **Hot-switch model** khi đang chạy (không cần restart)
+  - 🌐 Translate (Vietnamese ↔ English)
+- Custom prompts or use templates
+- **Hot-switch model** while running (no restart needed)
 
-### 🎤 Audio Transcription (Tùy chọn)
+### 🎤 Audio Transcription (Optional)
 - Azure Speech-to-Text
-- Ghi âm trực tiếp hoặc upload file
-- Transcribe realtime từ microphone
+- Record directly or upload file
+- Real-time transcription from microphone
 
-### 🔄 File Converter (Tùy chọn)
-- 49+ định dạng qua CloudConvert API
-- Hỗ trợ: Audio, Image, Document, Video
+### 🔄 File Converter (Optional)
+- 49+ formats via CloudConvert API
+- Supports: Audio, Image, Document, Video
 
 ---
 
-## 🚀 Cài đặt
+## 🚀 Installation
 
-### Yêu cầu hệ thống
+### System Requirements
 - Windows 10/11
-- Python 3.10+ (khuyến nghị 3.12+)
-- Quyền Administrator (cho Stealth Mode)
+- Python 3.10+ (recommended 3.12+)
+- Administrator privileges (for Stealth Mode)
 
-### Cài đặt nhanh
+### Quick Installation
 
 ```powershell
 # Clone repository
@@ -96,61 +96,61 @@ cd SnapCapAI
 # Install dependencies
 pip install -r requirements.txt
 
-# Chạy ứng dụng (tự động yêu cầu quyền Admin)
+# Run application (auto-requests Admin rights)
 python gui_app.py
 ```
 
 ---
 
-## 🔑 Cấu hình API Keys
+## 🔑 API Keys Configuration
 
-| Service | Bắt buộc | Ghi chú | Link |
-|---------|----------|---------|------|
-| **Gemini** | ✅ | Free tier chỉ có 2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| Azure Speech | ❌ | Cho audio transcription | [portal.azure.com](https://portal.azure.com) |
-| CloudConvert | ❌ | Cho file conversion | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
+| Service | Required | Notes | Link |
+|---------|----------|-------|------|
+| **Gemini** | ✅ | Free tier only has 2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| Azure Speech | ❌ | For audio transcription | [portal.azure.com](https://portal.azure.com) |
+| CloudConvert | ❌ | For file conversion | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
 
 ---
 
-## 🎮 Cách sử dụng
+## 🎮 Usage
 
-### Cơ bản
-1. Nhập Gemini API Key → **Save All Credentials**
-2. Chọn model: `gemini-2.5-flash` (khuyến nghị cho free tier)
+### Basic Usage
+1. Enter Gemini API Key → **Save All Credentials**
+2. Select model: `gemini-2.5-flash` (recommended for free tier)
 3. Click **"▶ ENGAGE STEALTH MODE"**
-4. Nhấn **PrtSc** để chụp ảnh
-5. Chờ 5s hoặc chụp thêm (tối đa 10 ảnh)
-6. AI tự động phân tích và hiện kết quả
+4. Press **PrtSc** to capture screenshot
+5. Wait 5s or capture more (max 10 images)
+6. AI automatically analyzes and shows results
 
-### 🖱️ Điều khiển Notification
-| Thao tác | Chức năng |
-|----------|-----------|
-| **Double-click LEFT** (0.5s) | Hiện lại notification cuối cùng |
-| **Double-click RIGHT** (0.5s) | Ẩn notification ngay lập tức |
-| Tự động | Notification tự ẩn sau duration đã set |
+### 🖱️ Notification Controls
+| Action | Function |
+|--------|----------|
+| **Double-click LEFT** (0.5s) | Show last notification again |
+| **Double-click RIGHT** (0.5s) | Hide notification immediately |
+| Automatic | Notification auto-hides after set duration |
 
-### Chế độ hoạt động
-| Trạng thái | Màu | Mô tả |
-|------------|-----|-------|
-| 👑 Admin Mode | 🟢 Xanh | Stealth Mode đầy đủ, PrtSc bị nuốt |
-| ⚠️ Standard Mode | 🟡 Vàng | Fallback (pynput), có thể bị detect |
+### Operation Modes
+| Status | Color | Description |
+|--------|-------|-------------|
+| 👑 Admin Mode | 🟢 Green | Full Stealth Mode, PrtSc swallowed |
+| ⚠️ Standard Mode | 🟡 Yellow | Fallback (pynput), may be detectable |
 
-### Tùy chỉnh Notification
-- **Theme:** ⬜ White / ⬛ Dark (dim text cho stealth)
+### Notification Customization
+- **Theme:** ⬜ White / ⬛ Dark (dim text for stealth)
 - **Duration:** 1s - 10s
-- **Width:** 600px (hiển thị rõ ràng)
+- **Width:** 600px (clear display)
 
 ---
 
 ## 🔧 Build EXE
 
-Tạo file thực thi (.exe) để sử dụng không cần Python:
+Create executable file (.exe) to use without Python:
 
 ```powershell
-# Cách 1: Batch file (khuyến nghị)
+# Method 1: Batch file (recommended)
 .\setup-and-build.bat
 
-# Cách 2: Build thủ công
+# Method 2: Manual build
 pip install pyinstaller
 pyinstaller SnapCapAI.spec --clean
 ```
@@ -159,21 +159,25 @@ pyinstaller SnapCapAI.spec --clean
 
 ---
 
-## 📁 Cấu trúc Project
+## 📁 Project Structure
 
 ```
 SnapCapAI/
-├── gui_app.py               # Main application
-├── keyboard_hook_manager.py # Low-level keyboard hook (WH_KEYBOARD_LL)
-├── hud_notification.py      # HUD overlay (WS_EX_NOACTIVATE)
-├── resource_manager.py      # Context managers, SafeFileWriter
-├── audio_handler.py         # Azure Speech integration
-├── cloudconvert_handler.py  # CloudConvert API wrapper
-├── universal_converter.py   # Multi-format converter
-├── config.json              # Saved settings & API keys
-├── requirements.txt         # Python dependencies
-├── SnapCapAI.spec           # PyInstaller spec
-└── temp/                    # Output folders
+├── gui_app.py                      # Main application
+├── config.json                     # Saved settings & API keys
+├── requirements.txt                # Python dependencies
+├── SnapCapAI.spec                  # PyInstaller spec
+├── setup-and-build.bat             # Build script
+├── src/                            # Source modules
+│   ├── __init__.py
+│   ├── keyboard_hook_manager.py    # Low-level keyboard hook (WH_KEYBOARD_LL)
+│   ├── hud_notification.py         # HUD overlay (WS_EX_NOACTIVATE)
+│   ├── resource_manager.py         # Context managers, SafeFileWriter
+│   ├── audio_handler.py            # Azure Speech integration
+│   ├── cloudconvert_handler.py     # CloudConvert API wrapper
+│   ├── universal_converter.py      # Multi-format converter
+│   └── convert_ui_compact.py       # Converter UI
+└── temp/                           # Output folders
     ├── audio/
     ├── image/
     ├── document/
@@ -183,49 +187,49 @@ SnapCapAI/
 
 ---
 
-## ❓ Xử lý sự cố
+## ❓ Troubleshooting
 
-| Vấn đề | Nguyên nhân | Giải pháp |
-|--------|-------------|-----------|
-| PrtSc không detect | Không có quyền Admin | Right-click → Run as Administrator |
-| "429 Quota exceeded" | Hết quota free tier | Chờ reset (1 phút cho RPM, 24h cho RPD) |
-| "429 Rate limit" | Gửi quá 5 request/phút | Chờ 1 phút rồi thử lại |
-| HUD chiếm focus | Bug Windows cũ | Restart app, kiểm tra Windows 10/11 |
-| API Error | Key sai hoặc hết hạn | Kiểm tra lại API key |
-| Model không đổi | Bug cũ (đã fix) | Cập nhật code mới nhất |
-| Double-click không nhận | Giữ nút quá lâu | Click nhanh 2 lần trong 0.5s |
-| Notification bị chồng | Bug cũ (đã fix) | Cập nhật code mới nhất |
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| PrtSc not detected | No Admin privileges | Right-click → Run as Administrator |
+| "429 Quota exceeded" | Free tier quota exhausted | Wait for reset (1 min for RPM, 24h for RPD) |
+| "429 Rate limit" | Sent over 5 requests/minute | Wait 1 minute and try again |
+| HUD steals focus | Old Windows bug | Restart app, check Windows 10/11 |
+| API Error | Wrong or expired key | Verify API key |
+| Model not changing | Old bug (fixed) | Update to latest code |
+| Double-click not working | Holding button too long | Click twice quickly within 0.5s |
+| Overlapping notifications | Old bug (fixed) | Update to latest code |
 
 ---
 
 ## 🔄 Changelog
 
-### v1.4.0 (15/12/2025)
-- ✅ **Double-click chỉ hoạt động khi capture BẬT** - Tắt khi dừng capture
-- ✅ **Memory leak fix** - Clear batch screenshots và pending results khi stop
-- ✅ **Tối ưu import** - Move `time` import ra top-level (tránh import lặp mỗi 30ms)
-- ✅ **Giữ temp files** - Không xóa files trong temp khi đóng app
+### v1.4.0 (12/15/2025)
+- ✅ **Double-click only works when capture is ON** - Disabled when capture stops
+- ✅ **Memory leak fix** - Clear batch screenshots and pending results on stop
+- ✅ **Import optimization** - Move `time` import to top-level (avoid repeated imports every 30ms)
+- ✅ **Keep temp files** - Don't delete temp folder files on app close
 
-### v1.3.0 (14/12/2025)
-- ✅ **Notification History** - Lưu 10 kết quả gần nhất
-- ✅ **Double-click LEFT** (0.5s) - Hiện lại notification cuối
-- ✅ **Double-click RIGHT** (0.5s) - Ẩn notification ngay
-- ✅ **Smart button release detection** - Tránh nhầm hold với double-click
-- ✅ **Notification overlap fix** - Không còn chồng lên nhau
-- ✅ **Wider notification** - 600px width cho dễ đọc
-- ✅ **6 Optimized prompts** - Template chi tiết hơn
-- ✅ **Thread-safe batch timer** - Fix bug 5s debounce
+### v1.3.0 (12/14/2025)
+- ✅ **Notification History** - Store 10 recent results
+- ✅ **Double-click LEFT** (0.5s) - Show last notification
+- ✅ **Double-click RIGHT** (0.5s) - Hide notification immediately
+- ✅ **Smart button release detection** - Avoid confusing hold with double-click
+- ✅ **Notification overlap fix** - No more overlapping
+- ✅ **Wider notification** - 600px width for readability
+- ✅ **6 Optimized prompts** - More detailed templates
+- ✅ **Thread-safe batch timer** - Fix 5s debounce bug
 
-### v1.2.0 (13/12/2025)
-- ✅ Hot-switch model khi đang chạy
-- ✅ Mặc định `gemini-2.5-flash` (free tier compatible)
-- ✅ Batch capture (5s debounce, max 10 ảnh)
+### v1.2.0 (12/13/2025)
+- ✅ Hot-switch model while running
+- ✅ Default `gemini-2.5-flash` (free tier compatible)
+- ✅ Batch capture (5s debounce, max 10 images)
 - ✅ Double-click to reveal results
 - ✅ Notification theme & duration settings
 
 ### v1.1.0
-- ✅ HUD Notification với click-through
-- ✅ Stealth Mode với keyboard hook
+- ✅ HUD Notification with click-through
+- ✅ Stealth Mode with keyboard hook
 - ✅ Admin auto-elevation
 
 ### v1.0.0
@@ -239,6 +243,6 @@ MIT License - Free to use and modify.
 
 ---
 
-## 👨‍💻 Tác giả
+## 👨‍💻 Author
 
 **Built with ❤️ by QuangNew | December 2025**

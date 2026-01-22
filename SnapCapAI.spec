@@ -39,9 +39,9 @@ hiddenimports = [
     'pystray',
     
     # Stealth mode modules (new)
-    'keyboard_hook_manager',
-    'hud_notification', 
-    'resource_manager',
+    'src.keyboard_hook_manager',
+    'src.hud_notification', 
+    'src.resource_manager',
     
     # Fallback keyboard (pynput)
     'pynput',
@@ -55,9 +55,9 @@ hiddenimports = [
     'azure.cognitiveservices.speech.audio',
     
     # File conversion
-    'universal_converter',
-    'cloudconvert_handler',
-    'audio_handler',
+    'src.universal_converter',
+    'src.cloudconvert_handler',
+    'src.audio_handler',
     
     # System
     'ctypes',

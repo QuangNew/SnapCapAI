@@ -21,12 +21,12 @@ import google.generativeai as genai
 from tkinter import scrolledtext, messagebox, filedialog, simpledialog
 import pystray
 from pystray import MenuItem as item
-from audio_handler import AudioHandler
-from cloudconvert_handler import CloudConvertHandler
-from universal_converter import UniversalConverter
-from keyboard_hook_manager import KeyboardHookManager
-from hud_notification import HUDNotification
-from resource_manager import screenshot_context, SafeFileWriter
+from src.audio_handler import AudioHandler
+from src.cloudconvert_handler import CloudConvertHandler
+from src.universal_converter import UniversalConverter
+from src.keyboard_hook_manager import KeyboardHookManager
+from src.hud_notification import HUDNotification
+from src.resource_manager import screenshot_context, SafeFileWriter
 
 # NOTE: pynput import is LAZY - only when needed as fallback
 PYNPUT_AVAILABLE = False
