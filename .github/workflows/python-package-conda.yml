@@ -40,10 +40,10 @@ jobs:
     
     - name: Check imports
       run: |
-        python -c "import customtkinter; print('✓ CustomTkinter:', customtkinter.__version__)"
-        python -c "import PIL; print('✓ Pillow:', PIL.__version__)"
-        python -c "import google.generativeai; print('✓ Google Generative AI imported')"
-        python -c "import pystray; print('✓ Pystray imported')"
+        python -c "import customtkinter; print('CustomTkinter:', customtkinter.__version__)"
+        python -c "import PIL; print('Pillow:', PIL.__version__)"
+        python -c "import google.generativeai; print('Google Generative AI imported')"
+        python -c "import pystray; print('Pystray imported')"
     
     - name: Verify project structure
       run: |
@@ -80,9 +80,9 @@ jobs:
       run: |
         if (Test-Path "dist\SnapCapAI.exe") {
           $size = (Get-Item "dist\SnapCapAI.exe").Length / 1MB
-          Write-Host "✓ SnapCapAI.exe created successfully ($([math]::Round($size, 2)) MB)"
+          Write-Host "SnapCapAI.exe created successfully ($([math]::Round($size, 2)) MB)"
         } else {
-          Write-Error "✗ SnapCapAI.exe not found!"
+          Write-Error "SnapCapAI.exe not found!"
           exit 1
         }
     
@@ -130,9 +130,9 @@ jobs:
       run: |
         if (Test-Path "Output\SnapCapAI-Setup.exe") {
           $size = (Get-Item "Output\SnapCapAI-Setup.exe").Length / 1MB
-          Write-Host "✓ SnapCapAI-Setup.exe created successfully ($([math]::Round($size, 2)) MB)"
+          Write-Host "SnapCapAI-Setup.exe created successfully ($([math]::Round($size, 2)) MB)"
         } else {
-          Write-Error "✗ SnapCapAI-Setup.exe not found!"
+          Write-Error "SnapCapAI-Setup.exe not found!"
           exit 1
         }
     
