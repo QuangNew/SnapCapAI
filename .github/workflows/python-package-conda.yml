@@ -48,7 +48,7 @@ jobs:
     - name: Create Release (on tag push)
       uses: softprops/action-gh-release@v1
       with:
-        files: Output/SnapCapAI.exe
+        files: dist/SnapCapAI.exe
         draft: false
         prerelease: false
       env:
