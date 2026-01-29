@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
 jobs:
-  build-exe:
+  build-release:
     name: Build Executable
     runs-on: windows-latest
     
@@ -45,30 +45,7 @@ jobs:
         path: dist/SnapCapAI.exe
         retention-days: 7
 
-  build-installer:
-    name: Build Windows Installer
-    runs-on: windows-latest
-    needs: build-exe
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python 3.14
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.14'
-        cache: 'pip'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: Build executable
-      run: |
-        python -m PyInstaller SnapCapAI.spec --clean --noconfirm
-    
+        
     - name: Install Inno Setup
       run: |
         choco install innosetup -y
@@ -92,37 +69,15 @@ jobs:
       with:
         name: SnapCapAI-Setup-${{ github.sha }}
         path: Output/SnapCapAI-Setup.exe
-        retention-days: 30
+        retention-days: 7
 
-  create-release:
-    name: Create GitHub Release
-    runs-on: windows-latest
-    needs: build-installer
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Download executable artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: SnapCapAI-exe-${{ github.sha }}
-        path: ./release-exe
-    
-    - name: Download installer artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: SnapCapAI-Setup-${{ github.sha }}
-        path: ./release-setup
-    
-    - name: Create Release
+    - name: Create Release (on tag push)
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ./release-exe/SnapCapAI.exe
-          ./release-setup/SnapCapAI-Setup.exe
+            dist/SnapCapAI.exe
+            Output/SnapCapAI-setup.exe 
         draft: false
         prerelease: false
-        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.SUPER_TOKEN }}
