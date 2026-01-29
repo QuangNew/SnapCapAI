@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
 jobs:
-  build-exe:
+  build-release:
     name: Build Executable
     runs-on: windows-latest
     
@@ -44,7 +44,33 @@ jobs:
         name: SnapCapAI-exe-${{ github.sha }}
         path: dist/SnapCapAI.exe
         retention-days: 7
+
         
+    - name: Install Inno Setup
+      run: |
+        choco install innosetup -y
+    
+    - name: Build installer with Inno Setup
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" SnapCapAI-installer.iss
+    
+    - name: Verify installer
+      run: |
+        if (Test-Path "Output\SnapCapAI-Setup.exe") {
+          $size = (Get-Item "Output\SnapCapAI-Setup.exe").Length / 1MB
+          Write-Host "SnapCapAI-Setup.exe created successfully ($([math]::Round($size, 2)) MB)"
+        } else {
+          Write-Error "SnapCapAI-Setup.exe not found!"
+          exit 1
+        }
+    
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SnapCapAI-Setup-${{ github.sha }}
+        path: dist/SnapCapAI-Setup.exe
+        retention-days: 7
+
     - name: Create Release (on tag push)
       uses: softprops/action-gh-release@v1
       with:
