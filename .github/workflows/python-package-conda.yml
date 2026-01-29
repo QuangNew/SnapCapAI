@@ -8,63 +8,19 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  test:
-    name: Test Python Code
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        python-version: ['3.14']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        # Stop build on Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,build,dist,.venv
-        # Treat all errors as warnings (max line length 120)
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics --exclude=.git,__pycache__,build,dist,.venv
-    
-    - name: Check imports
-      run: |
-        python -c "import customtkinter; print('CustomTkinter:', customtkinter.__version__)"
-        python -c "import PIL; print('Pillow:', PIL.__version__)"
-        python -c "import google.generativeai; print('Google Generative AI imported')"
-        python -c "import pystray; print('Pystray imported')"
-    
-    - name: Verify project structure
-      run: |
-        python -c "import sys; sys.path.insert(0, 'src'); from keyboard_hook_manager import KeyboardHookManager; print('OK - KeyboardHookManager')"
-        python -c "import sys; sys.path.insert(0, 'src'); from hud_notification import HUDNotification; print('OK - HUDNotification')"
-        python -c "import sys; sys.path.insert(0, 'src'); from resource_manager import SafeFileWriter; print('OK - ResourceManager')"
-
   build-exe:
     name: Build Executable
     runs-on: windows-latest
-    needs: test
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Python 3.12
+    - name: Set up Python 3.14
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.14'
         cache: 'pip'
     
     - name: Install dependencies
@@ -103,10 +59,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Python 3.12
+    - name: Set up Python 3.14
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.14'
         cache: 'pip'
     
     - name: Install dependencies

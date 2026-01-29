@@ -12,7 +12,7 @@ AppPublisher=QuangNew
 AppPublisherURL=https://github.com/QuangNew/SnapCapAI
 AppSupportURL=https://github.com/QuangNew/SnapCapAI/issues
 AppUpdatesURL=https://github.com/QuangNew/SnapCapAI/releases
-AppId={SnapCapAI-A5F3-4B2E-8C9D-1E4F6A7B8C9D}
+AppId={{SnapCapAI-A5F3-4B2E-8C9D-1E4F6A7B8C9D}
 
 ; Installation Settings
 DefaultDirName={autopf}\SnapCapAI
