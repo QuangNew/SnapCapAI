@@ -159,6 +159,54 @@ pyinstaller SnapCapAI.spec --clean
 
 ---
 
+## 📦 Create Setup Installer
+
+Build a professional Windows installer for easy distribution:
+
+### Prerequisites
+- Download and install [Inno Setup 6](https://jrsoftware.org/isdl.php)
+- Install to default location: `C:\Program Files (x86)\Inno Setup 6`
+
+### Build Installer
+
+```powershell
+# One-click build (recommended)
+.\build-installer.bat
+```
+
+This will:
+1. Clean old builds
+2. Build `SnapCapAI.exe` with PyInstaller
+3. Compile the installer with Inno Setup
+4. Create: `Output\SnapCapAI-Setup.exe` (~85MB)
+
+### Installer Features
+- ✅ **Custom install directory** (default: C:\Program Files\SnapCapAI)
+- ✅ **Desktop shortcut** (optional, checked by default)
+- ✅ **Start Menu shortcut**
+- ✅ **Auto-start with Windows** (optional, checked by default)
+- ✅ **Launch after installation** (optional)
+- ✅ **Full uninstaller** (removes all files, shortcuts, registry entries)
+
+### What's Included
+- `SnapCapAI.exe` (compiled application)
+- `SnapCapAI.ico` (icon file)
+- All Python source files from `src/` folder
+
+### Distribution
+Simply share `Output\SnapCapAI-Setup.exe` with users!
+
+**Requirements for end users:**
+- Windows 10/11 (x64)
+- Administrator privileges (for installation)
+- ~100MB free disk space
+
+**No Python or dependencies required** - Everything is bundled!
+
+For detailed testing instructions, see `INSTALLER-TESTING-GUIDE.md`
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -167,7 +215,11 @@ SnapCapAI/
 ├── config.json                     # Saved settings & API keys
 ├── requirements.txt                # Python dependencies
 ├── SnapCapAI.spec                  # PyInstaller spec
-├── setup-and-build.bat             # Build script
+├── SnapCapAI.ico                   # Application icon
+├── setup-and-build.bat             # Build EXE script
+├── SnapCapAI-installer.iss         # Inno Setup installer script
+├── build-installer.bat             # Build installer script
+├── INSTALLER-TESTING-GUIDE.md      # Installer testing guide
 ├── src/                            # Source modules
 │   ├── __init__.py
 │   ├── keyboard_hook_manager.py    # Low-level keyboard hook (WH_KEYBOARD_LL)
@@ -177,6 +229,10 @@ SnapCapAI/
 │   ├── cloudconvert_handler.py     # CloudConvert API wrapper
 │   ├── universal_converter.py      # Multi-format converter
 │   └── convert_ui_compact.py       # Converter UI
+├── dist/                           # Build output
+│   └── SnapCapAI.exe              # Compiled executable
+├── Output/                         # Installer output
+│   └── SnapCapAI-Setup.exe        # Windows installer (~85MB)
 └── temp/                           # Output folders
     ├── audio/
     ├── image/
