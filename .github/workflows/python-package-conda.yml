@@ -68,13 +68,15 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SnapCapAI-Setup-${{ github.sha }}
-        path: dist/SnapCapAI-Setup.exe
+        path: Output/SnapCapAI-Setup.exe
         retention-days: 7
 
     - name: Create Release (on tag push)
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/SnapCapAI.exe
+        files: |
+            dist/SnapCapAI.exe
+            Output/SnapCapAI-setup.exe 
         draft: false
         prerelease: false
       env:
