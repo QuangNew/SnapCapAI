@@ -47,9 +47,9 @@ jobs:
     
     - name: Verify project structure
       run: |
-        python -c "import sys; sys.path.insert(0, 'src'); from keyboard_hook_manager import KeyboardHookManager; print('✓ KeyboardHookManager')"
-        python -c "import sys; sys.path.insert(0, 'src'); from hud_notification import HUDNotification; print('✓ HUDNotification')"
-        python -c "import sys; sys.path.insert(0, 'src'); from resource_manager import SafeFileWriter; print('✓ ResourceManager')"
+        python -c "import sys; sys.path.insert(0, 'src'); from keyboard_hook_manager import KeyboardHookManager; print('OK - KeyboardHookManager')"
+        python -c "import sys; sys.path.insert(0, 'src'); from hud_notification import HUDNotification; print('OK - HUDNotification')"
+        python -c "import sys; sys.path.insert(0, 'src'); from resource_manager import SafeFileWriter; print('OK - ResourceManager')"
 
   build-exe:
     name: Build Executable
