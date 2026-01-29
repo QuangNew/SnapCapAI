@@ -1,297 +1,88 @@
 # 🤖 SnapCapAI
 
-**AI-Powered Screen Capture with Stealth Mode**
-
-Capture screenshots using PrtSc and analyze them with AI without interrupting running applications (browser, games, videos).
-
----
-
-## ⚠️ Important Notice (12/14/2025)
-
-> **Google Free Tier currently only supports `gemini-2.5-flash`**
-> 
-> Other models (`gemini-2.0-flash`, `gemini-2.5-pro`, `gemini-3-pro`) require:
-> - Paid account (billing enabled)
-> - Or free tier quota exhausted
->
-> **⏱️ Free Tier Limits (gemini-2.5-flash):**
-> | Type | Limit |
-> |------|-------|
-> | RPM (Requests/minute) | **5 requests** |
-> | TPM (Tokens/minute) | **250,000 tokens** |
-> | RPD (Requests/day) | **25 requests** |
->
-> **Recommendation:** Use `gemini-2.5-flash` (default) and avoid spamming PrtSc.
+AI-Powered Screen Capture with Stealth Mode - Capture screenshots using PrtSc and analyze them with AI.
 
 ---
 
 ## ✨ Features
 
 ### 🕵️ Stealth Mode
-- Low-level keyboard hook (WH_KEYBOARD_LL)
-- Swallows PrtSc key - Browser/Game won't detect captures
+- Swallows PrtSc key - won't interrupt games/videos
 - Requires Administrator privileges
 
-### 🎯 HUD Overlay Notification
-- TopMost notification without stealing focus (WS_EX_NOACTIVATE + WS_EX_TRANSPARENT)
-- Click-through - Doesn't interfere with interactions
-- 2 themes: ⬜ White (dim text) / ⬛ Dark
-- Customizable duration: 1-10 seconds
-- **600px width notification** - Clearer display
-
-### 📸 Batch Capture
-- Capture multiple screenshots in succession (max 10 images)
-- 5-second debounce - Resets timer with each capture
-- Auto-combines and sends all images after 5s of inactivity
-- **Smart Context** - AI analyzes connections between images
-
-### 🖱️ Double-Click Controls (0.5s threshold)
-| Action | Function |
-|--------|----------|
-| **Double-click LEFT** | Show last notification from history |
-| **Double-click RIGHT** | Hide notification immediately |
-
-- **Only active when Stealth Mode is ON** - Disabled when capture stops
-- Detects on **button release** (not press) - Avoids confusion with hold
-- **Notification History** - Stores up to 10 recent results
-- Secure - Others can't see results immediately
+### 📸 Smart Capture
+- Batch capture (max 10 images, 5s debounce)
+- HUD overlay notification (click-through, 2 themes)
+- Double-click LEFT: Show last result | RIGHT: Hide notification
 
 ### 🤖 AI Analysis
-- Google Gemini API (2.5-flash default)
-- **6 Optimized Prompt Templates**:
-  - 📝 General Analysis
-  - 🔍 Code Review  
-  - ✅ Answer Questions
-  - 📄 Text Extraction (OCR)
-  - 🔐 Explain Technical
-  - 🌐 Translate (Vietnamese ↔ English)
-- Custom prompts or use templates
-- **Hot-switch model** while running (no restart needed)
+- Google Gemini API (gemini-2.5-flash default)
+- 6 prompt templates: General, Code Review, OCR, Translation, etc.
+- Hot-switch model while running
 
-### 🎤 Audio Transcription (Optional)
-- Azure Speech-to-Text
-- Record directly or upload file
-- Real-time transcription from microphone
-
-### 🔄 File Converter (Optional)
-- 49+ formats via CloudConvert API
-- Supports: Audio, Image, Document, Video
+### Optional Features
+- 🎤 Audio Transcription (Azure Speech-to-Text)
+- 🔄 File Converter (49+ formats via CloudConvert)
 
 ---
 
 ## 🚀 Installation
 
-### System Requirements
-- Windows 10/11
-- Python 3.10+ (recommended 3.12+)
-- Administrator privileges (for Stealth Mode)
-
-### Quick Installation
+**Requirements:** Windows 10/11, Python 3.10+, Admin privileges
 
 ```powershell
-# Clone repository
 git clone https://github.com/QuangNew/SnapCapAI.git
 cd SnapCapAI
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Run application (auto-requests Admin rights)
-python gui_app.py
+python gui_app.py  # Auto-requests Admin rights
 ```
 
 ---
 
-## 🔑 API Keys Configuration
+## 🔑 API Keys
 
-| Service | Required | Notes | Link |
-|---------|----------|-------|------|
-| **Gemini** | ✅ | Free tier only has 2.5-flash | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| Azure Speech | ❌ | For audio transcription | [portal.azure.com](https://portal.azure.com) |
-| CloudConvert | ❌ | For file conversion | [cloudconvert.com](https://cloudconvert.com/dashboard/api/v2/keys) |
+- **Gemini** (Required): [Get API Key](https://aistudio.google.com/app/apikey) - Free tier: 5 req/min, 25 req/day
+- Azure Speech (Optional): For audio transcription
+- CloudConvert (Optional): For file conversion
 
 ---
 
 ## 🎮 Usage
 
-### Basic Usage
-1. Enter Gemini API Key → **Save All Credentials**
-2. Select model: `gemini-2.5-flash` (recommended for free tier)
+1. Enter Gemini API Key → Save
+2. Select `gemini-2.5-flash` model
 3. Click **"▶ ENGAGE STEALTH MODE"**
-4. Press **PrtSc** to capture screenshot
-5. Wait 5s or capture more (max 10 images)
-6. AI automatically analyzes and shows results
+4. Press **PrtSc** to capture
+5. AI analyzes and shows results
 
-### 🖱️ Notification Controls
-| Action | Function |
-|--------|----------|
-| **Double-click LEFT** (0.5s) | Show last notification again |
-| **Double-click RIGHT** (0.5s) | Hide notification immediately |
-| Automatic | Notification auto-hides after set duration |
-
-### Operation Modes
-| Status | Color | Description |
-|--------|-------|-------------|
-| 👑 Admin Mode | 🟢 Green | Full Stealth Mode, PrtSc swallowed |
-| ⚠️ Standard Mode | 🟡 Yellow | Fallback (pynput), may be detectable |
-
-### Notification Customization
-- **Theme:** ⬜ White / ⬛ Dark (dim text for stealth)
-- **Duration:** 1s - 10s
-- **Width:** 600px (clear display)
+**Controls:**
+- Double-click LEFT: Show last result
+- Double-click RIGHT: Hide notification
 
 ---
 
 ## 🔧 Build EXE
 
-Create executable file (.exe) to use without Python:
-
 ```powershell
-# Method 1: Batch file (recommended)
-.\setup-and-build.bat
-
-# Method 2: Manual build
-pip install pyinstaller
-pyinstaller SnapCapAI.spec --clean
+.\setup-and-build.bat          # Output: dist\SnapCapAI.exe
+.\build-installer.bat          # Output: Output\SnapCapAI-Setup.exe
 ```
 
-**Output**: `dist\SnapCapAI.exe`
+**Requirements:** [Inno Setup 6](https://jrsoftware.org/isdl.php) for installer
 
 ---
 
-## 📦 Create Setup Installer
 
-Build a professional Windows installer for easy distribution:
-
-### Prerequisites
-- Download and install [Inno Setup 6](https://jrsoftware.org/isdl.php)
-- Install to default location: `C:\Program Files (x86)\Inno Setup 6`
-
-### Build Installer
-
-```powershell
-# One-click build (recommended)
-.\build-installer.bat
-```
-
-This will:
-1. Clean old builds
-2. Build `SnapCapAI.exe` with PyInstaller
-3. Compile the installer with Inno Setup
-4. Create: `Output\SnapCapAI-Setup.exe` (~85MB)
-
-### Installer Features
-- ✅ **Custom install directory** (default: C:\Program Files\SnapCapAI)
-- ✅ **Desktop shortcut** (optional, checked by default)
-- ✅ **Start Menu shortcut**
-- ✅ **Auto-start with Windows** (optional, checked by default)
-- ✅ **Launch after installation** (optional)
-- ✅ **Full uninstaller** (removes all files, shortcuts, registry entries)
-
-### What's Included
-- `SnapCapAI.exe` (compiled application)
-- `SnapCapAI.ico` (icon file)
-- All Python source files from `src/` folder
-
-### Distribution
-Simply share `Output\SnapCapAI-Setup.exe` with users!
-
-**Requirements for end users:**
-- Windows 10/11 (x64)
-- Administrator privileges (for installation)
-- ~100MB free disk space
-
-**No Python or dependencies required** - Everything is bundled!
-
-For detailed testing instructions, see `INSTALLER-TESTING-GUIDE.md`
-
----
-
-## 📁 Project Structure
-
-```
-SnapCapAI/
-├── gui_app.py                      # Main application
-├── config.json                     # Saved settings & API keys
-├── requirements.txt                # Python dependencies
-├── SnapCapAI.spec                  # PyInstaller spec
-├── SnapCapAI.ico                   # Application icon
-├── setup-and-build.bat             # Build EXE script
-├── SnapCapAI-installer.iss         # Inno Setup installer script
-├── build-installer.bat             # Build installer script
-├── INSTALLER-TESTING-GUIDE.md      # Installer testing guide
-├── src/                            # Source modules
-│   ├── __init__.py
-│   ├── keyboard_hook_manager.py    # Low-level keyboard hook (WH_KEYBOARD_LL)
-│   ├── hud_notification.py         # HUD overlay (WS_EX_NOACTIVATE)
-│   ├── resource_manager.py         # Context managers, SafeFileWriter
-│   ├── audio_handler.py            # Azure Speech integration
-│   ├── cloudconvert_handler.py     # CloudConvert API wrapper
-│   ├── universal_converter.py      # Multi-format converter
-│   └── convert_ui_compact.py       # Converter UI
-├── dist/                           # Build output
-│   └── SnapCapAI.exe              # Compiled executable
-├── Output/                         # Installer output
-│   └── SnapCapAI-Setup.exe        # Windows installer (~85MB)
-└── temp/                           # Output folders
-    ├── audio/
-    ├── image/
-    ├── document/
-    ├── video/
-    └── speechtotext_output/
-```
-
----
 
 ## ❓ Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| PrtSc not detected | No Admin privileges | Right-click → Run as Administrator |
-| "429 Quota exceeded" | Free tier quota exhausted | Wait for reset (1 min for RPM, 24h for RPD) |
-| "429 Rate limit" | Sent over 5 requests/minute | Wait 1 minute and try again |
-| HUD steals focus | Old Windows bug | Restart app, check Windows 10/11 |
-| API Error | Wrong or expired key | Verify API key |
-| Model not changing | Old bug (fixed) | Update to latest code |
-| Double-click not working | Holding button too long | Click twice quickly within 0.5s |
-| Overlapping notifications | Old bug (fixed) | Update to latest code |
+- **PrtSc not working**: Run as Administrator
+- **"429 Rate limit"**: Wait 1 minute (free tier: 5 req/min)
+- **API Error**: Check API key validity
 
 ---
 
-## 🔄 Changelog
 
-### v1.4.0 (12/15/2025)
-- ✅ **Double-click only works when capture is ON** - Disabled when capture stops
-- ✅ **Memory leak fix** - Clear batch screenshots and pending results on stop
-- ✅ **Import optimization** - Move `time` import to top-level (avoid repeated imports every 30ms)
-- ✅ **Keep temp files** - Don't delete temp folder files on app close
-
-### v1.3.0 (12/14/2025)
-- ✅ **Notification History** - Store 10 recent results
-- ✅ **Double-click LEFT** (0.5s) - Show last notification
-- ✅ **Double-click RIGHT** (0.5s) - Hide notification immediately
-- ✅ **Smart button release detection** - Avoid confusing hold with double-click
-- ✅ **Notification overlap fix** - No more overlapping
-- ✅ **Wider notification** - 600px width for readability
-- ✅ **6 Optimized prompts** - More detailed templates
-- ✅ **Thread-safe batch timer** - Fix 5s debounce bug
-
-### v1.2.0 (12/13/2025)
-- ✅ Hot-switch model while running
-- ✅ Default `gemini-2.5-flash` (free tier compatible)
-- ✅ Batch capture (5s debounce, max 10 images)
-- ✅ Double-click to reveal results
-- ✅ Notification theme & duration settings
-
-### v1.1.0
-- ✅ HUD Notification with click-through
-- ✅ Stealth Mode with keyboard hook
-- ✅ Admin auto-elevation
-
-### v1.0.0
-- 🚀 Initial release
-
----
 
 ## 📜 License
 
